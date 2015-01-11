@@ -11,10 +11,16 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"rsc.io/cc"
 )
 
 type Config struct {
 	pkgRules []pkgRule
+	exports  []string
+
+	// derived during analysis
+	topDecls []*cc.Decl
 }
 
 type pkgRule struct {
@@ -60,6 +66,8 @@ func (cfg *Config) read(file string) {
 			for i := 1; i < len(f)-1; i++ {
 				cfg.pkgRules = append(cfg.pkgRules, pkgRule{f[i], pkg})
 			}
+		case "export":
+			cfg.exports = append(cfg.exports, f[1:]...)
 		default:
 			log.Printf("%s:%d: unknown verb %s", file, lineno, f[0])
 		}

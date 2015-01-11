@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	inc = flag.String("I", "", "include directory")
+	cfgFile = flag.String("c", "", "config file")
+	inc     = flag.String("I", "", "include directory")
 )
 
 func main() {
@@ -50,5 +51,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	_ = prog
+	cfg := new(Config)
+	if *cfgFile != "" {
+		cfg.read(*cfgFile)
+	}
+	renameDecls(cfg, prog)
+	exportDecls(cfg, prog)
+	rewriteSyntax(cfg, prog)
+	writeGoFiles(cfg, prog)
 }

@@ -1,8 +1,12 @@
 #!/bin/bash
 
+set -e
 eval $(go env)
+export GOROOT
 go install
 rm -f c2go
+rm -rf /tmp/c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
-c2go -I $GOROOT/include $GOROOT/src/liblink/*.c
-
+c2go -c c2go.cfg -I $GOROOT/include $GOROOT/src/liblink/*.c
+gofmt -w /tmp/c2go # check for syntax errors, mainly
+wc $(find /tmp/c2go -type f)

@@ -137,4 +137,6 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 			d.Name += "_" + file
 		}
 	}
+
+	cfg.topDecls = decls
 }

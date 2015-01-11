@@ -29,6 +29,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		p := printers[gofile]
 		if p == nil {
 			p = new(Printer)
+			p.Package = decl.GoPackage
 			p.Print("package main\n\n")
 			printers[gofile] = p
 		}
@@ -38,7 +39,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 	}
 
 	for gofile, p := range printers {
-		dstfile := filepath.Join("/tmp/c2go", gofile)
+		dstfile := filepath.Join("/tmp/c2go/src", gofile)
 		os.MkdirAll(filepath.Dir(dstfile), 0777)
 		buf := p.Bytes()
 
