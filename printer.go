@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 type PrintSpecial int
@@ -741,24 +741,11 @@ func (p *Printer) printType(t *cc.Type) {
 
 	switch t.Kind {
 	default:
+		if t.String() == "" {
+			p.Print("C.unknown")
+			break
+		}
 		p.Print("C.", t.String()) // hope for the best
-
-	case cc.Char:
-		p.Print("int8")
-	case cc.Uchar:
-		p.Print("uint8")
-
-	case cc.Short:
-		p.Print("int16")
-
-	case cc.Ushort:
-		p.Print("uint16")
-
-	case cc.Double:
-		p.Print("float64")
-
-	case cc.Int:
-		p.Print("int")
 
 	case Slice:
 		p.Print("[]", t.Base)

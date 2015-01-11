@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 // Rewrite from C constructs to Go constructs.
@@ -19,6 +19,14 @@ func rewriteSyntax(cfg *Config, prog *cc.Prog) {
 
 		case *cc.Expr:
 			switch x.Op {
+			case cc.Name:
+				switch x.Text {
+				case "nil":
+					x.XDecl = nil // just nil, not main.Nil
+				case "nelem":
+					x.Text = "len"
+					x.XDecl = nil
+				}
 			case cc.Number:
 				// Rewrite char literal.
 				// In general we'd need to rewrite all string and char literals

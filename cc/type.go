@@ -73,7 +73,7 @@ var typeKindString = []string{
 }
 
 func (k TypeKind) String() string {
-	if 0 <= int(k) && int(k) <= len(typeKindString) {
+	if 0 <= int(k) && int(k) <= len(typeKindString) && typeKindString[k] != "" {
 		return typeKindString[k]
 	}
 	return fmt.Sprintf("TypeKind(%d)", k)
@@ -280,6 +280,9 @@ func (t *Type) String() string {
 	default:
 		return t.Kind.String()
 	case TypedefType:
+		if t.Name == "" {
+			return "missing_typedef_name"
+		}
 		return t.Name
 	case Ptr:
 		return t.Base.String() + "*"

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 func exportDecls(cfg *Config, prog *cc.Prog) {

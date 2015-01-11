@@ -9,4 +9,7 @@ rm -rf /tmp/c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
 c2go -c c2go.cfg -I $GOROOT/include $GOROOT/src/liblink/*.c
 gofmt -w /tmp/c2go # check for syntax errors, mainly
+mv /tmp/c2go/src/main /tmp/c2go/notmain
+GOPATH=/tmp/c2go goimports -w /tmp/c2go/src
 wc $(find /tmp/c2go -type f)
+GOPATH=/tmp/c2go go build -gcflags -e liblink1/... 2>&1| grep undefined:

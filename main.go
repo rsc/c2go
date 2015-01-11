@@ -11,7 +11,7 @@ import (
 	"log"
 	"os"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 var (
@@ -55,8 +55,10 @@ func main() {
 	if *cfgFile != "" {
 		cfg.read(*cfgFile)
 	}
+	rewriteTypes(cfg, prog)
+	rewriteSyntax(cfg, prog)
+	fixGoTypes(cfg, prog)
 	renameDecls(cfg, prog)
 	exportDecls(cfg, prog)
-	rewriteSyntax(cfg, prog)
 	writeGoFiles(cfg, prog)
 }

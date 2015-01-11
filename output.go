@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 // writeGoFiles writes prog to Go source files in a tree of packages.
@@ -31,6 +31,9 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 			p = new(Printer)
 			p.Package = decl.GoPackage
 			p.Print("package main\n\n")
+			if p.Package != "liblink1" {
+				p.Print("import \"liblink1\"\n\n")
+			}
 			printers[gofile] = p
 		}
 		p.Print(decl)

@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"rsc.io/cc"
+	"rsc.io/c2go/cc"
 )
 
 type Config struct {
