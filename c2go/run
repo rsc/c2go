@@ -1,0 +1,8 @@
+#!/bin/bash
+
+eval $(go env)
+go install
+rm -f c2go
+rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
+c2go -I $GOROOT/include $GOROOT/src/liblink/*.c
+
