@@ -182,6 +182,10 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 			return t
 		}
 
+		if typ.Base.Def().Kind == cc.Uchar {
+			t.Kind = Slice
+			t.Base = byteType
+		}
 		return t
 
 	case cc.Func:
@@ -478,11 +482,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 		return x.XDecl.Type
 
 	case cc.Call:
-		/*
-			if fixPrintf(fn, x) {
-				return x.XType
-			}
-		*/
+		if fixPrintf(fn, x) {
+			return x.XType
+		}
 		if fixSpecialCall(fn, x, targ) {
 			return x.XType
 		}
@@ -496,6 +498,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 		}
 		if left != nil && left.Kind == cc.Func {
 			return left.Base
+		}
+		if left != nil && left.Kind == cc.Ptr && left.Base.Kind == cc.Func {
+			return left.Base.Base
 		}
 		return nil
 

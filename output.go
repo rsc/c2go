@@ -36,9 +36,27 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 			}
 			printers[gofile] = p
 		}
-		p.Print(decl)
-		p.Print(Newline)
-		p.Print(Newline)
+
+		off := len(p.Bytes())
+		repl, ok := cfg.replace[decl.Name]
+		if !ok {
+			repl, ok = cfg.replace[strings.ToLower(decl.Name)]
+		}
+		if cfg.delete[decl.Name] || cfg.delete[strings.ToLower(decl.Name)] {
+			repl, ok = "", true
+		}
+		if ok {
+			// Use replacement text from config but keep surrounding comments.
+			p.Print(decl.Comments.Before)
+			p.Print(repl)
+			p.Print(decl.Comments.Suffix, decl.Comments.After)
+		} else {
+			p.Print(decl)
+		}
+		if len(p.Bytes()) > off {
+			p.Print(Newline)
+			p.Print(Newline)
+		}
 	}
 
 	for gofile, p := range printers {
@@ -54,6 +72,14 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		if err == nil {
 			buf = buf1
 		}
+
+		for i, d := range cfg.diffs {
+			if bytes.Contains(buf, d.before) {
+				buf = bytes.Replace(buf, d.before, d.after, -1)
+				cfg.diffs[i].used++
+			}
+		}
+
 		if err := ioutil.WriteFile(dstfile, buf, 0666); err != nil {
 			log.Print(err)
 		}
