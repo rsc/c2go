@@ -166,8 +166,10 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 
 	case cc.Char, cc.Uchar, cc.Short, cc.Ushort, cc.Int, cc.Uint, cc.Long, cc.Ulong, cc.Longlong, cc.Ulonglong, cc.Float, cc.Double, cc.Enum:
 		t := &cc.Type{Kind: c2goKind[typ.Kind]}
-		if d, ok := x.(*cc.Decl); ok && cfg.bool[declKey(d)] {
-			t.Kind = Bool
+		if d, ok := x.(*cc.Decl); ok {
+			if cfg.bool[declKey(d)] {
+				t.Kind = Bool
+			}
 		}
 		return t
 
@@ -211,7 +213,11 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 	case cc.Ptr:
 		t := &cc.Type{Kind: cc.Ptr}
 		cache[typ] = t
-		t.Base = toGoType(cfg, nil, typ.Base, cache)
+		base := x
+		if typ.Base.Kind != cc.Func {
+			base = nil
+		}
+		t.Base = toGoType(cfg, base, typ.Base, cache)
 
 		// Convert void* to interface{}.
 		if typ.Base.Kind == cc.Void {
@@ -227,11 +233,13 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 			return t
 		}
 
-		if typ.Base.Def().Kind == cc.Uchar {
+		d, ok := x.(*cc.Decl)
+
+		if typ.Base.Def().Kind == cc.Uchar && (!ok || !cfg.ptr[declKey(d)]) {
 			t.Kind = Slice
 			t.Base = byteType
 		}
-		if d, ok := x.(*cc.Decl); ok && cfg.slice[declKey(d)] {
+		if ok && cfg.slice[declKey(d)] {
 			t.Kind = Slice
 		}
 
@@ -280,7 +288,7 @@ func fixGoTypes(cfg *Config, prog *cc.Prog) {
 		if decl.Body != nil {
 			t := decl.Type
 			if t != nil && t.Kind == cc.Func && t.Base.Is(Int) && len(t.Decls) == 1 && t.Decls[0].Type.String() == "Fmt*" {
-				// TODO fixFormatter(decl)
+				fixFormatter(decl)
 			}
 			fixGoTypesStmt(prog, decl, decl.Body)
 		}
@@ -993,16 +1001,16 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		if count == nil {
 			x.Left.Text = "new"
 			x.Left.XDecl = nil
-			x.List = []*cc.Expr{&cc.Expr{Op: cc.Name, Text: GoString(typ)}}
+			x.List = []*cc.Expr{&cc.Expr{Op: ExprType, Type: typ}}
 			x.XType = &cc.Type{Kind: cc.Ptr, Base: typ}
 		} else {
 			x.Left.Text = "make"
 			x.Left.XDecl = nil
+			x.XType = &cc.Type{Kind: Slice, Base: typ}
 			x.List = []*cc.Expr{
-				&cc.Expr{Op: cc.Name, Text: "[]" + GoString(typ)},
+				&cc.Expr{Op: ExprType, Type: x.XType},
 				count,
 			}
-			x.XType = &cc.Type{Kind: Slice, Base: typ}
 		}
 		return true
 

@@ -179,11 +179,14 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 				}
 			}
 
-		case 'A': // address
+		case 'A': // asm opcode
 			if allFlags != "%" {
 				fprintf(fx.Span, "format %s%c", allFlags, verb)
 			}
 			buf.WriteString("%v")
+			if narg < len(args) {
+				forceConvert(nil, args[narg], args[narg].XType, intType)
+			}
 			convert = "Aconv" + suffix
 
 		case 'L':

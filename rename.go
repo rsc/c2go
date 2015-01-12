@@ -27,6 +27,9 @@ var goKeyword = map[string]bool{
 	"select":      true,
 	"type":        true,
 	"var":         true,
+
+	// not keywords but still need renaming
+	"fmt": true,
 }
 
 // renameDecls renames file-local declarations to make them

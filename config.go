@@ -28,6 +28,7 @@ type Config struct {
 	cap      map[string]string
 	typeMap  map[string]string
 	bool     map[string]bool
+	ptr      map[string]bool
 
 	// derived during analysis
 	topDecls []*cc.Decl
@@ -75,6 +76,7 @@ func (cfg *Config) read(file string) {
 	cfg.cap = make(map[string]string)
 	cfg.typeMap = make(map[string]string)
 	cfg.bool = make(map[string]bool)
+	cfg.ptr = make(map[string]bool)
 
 	for len(lines) > 0 {
 		line := lines[0]
@@ -106,6 +108,11 @@ func (cfg *Config) read(file string) {
 		case "bool":
 			for _, name := range f[1:] {
 				cfg.bool[name] = true
+			}
+
+		case "ptr":
+			for _, name := range f[1:] {
+				cfg.ptr[name] = true
 			}
 
 		case "slice":

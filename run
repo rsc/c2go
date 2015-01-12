@@ -8,8 +8,12 @@ rm -f c2go
 rm -rf /tmp/c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
 c2go -c c2go.cfg -I $GOROOT/include $GOROOT/src/liblink/*.c
-for i in add/liblink/*; do
+for i in add/liblink/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
+	cat $i | grep -v 'build ignore' >/tmp/c2go/src/liblink1/$base
+done
+for i in add/liblink/*/*.go; do
+	base=$(echo $i | sed 's;add/liblink/;;')
 	cat $i | grep -v 'build ignore' >/tmp/c2go/src/liblink1/$base
 done
 rm /tmp/c2go/src/liblink1/bio.go

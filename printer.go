@@ -277,6 +277,7 @@ var opPrec = map[cc.ExprOp]int{
 	AndNotEq:   precLow,
 	ColonEq:    precLow,
 	TypeAssert: precArrow,
+	ExprType:   precNone,
 }
 
 var opStr = map[cc.ExprOp]string{
@@ -330,6 +331,7 @@ const (
 	AndNotEq
 	ColonEq
 	TypeAssert
+	ExprType
 )
 
 func (p *Printer) printExpr(x *cc.Expr, prec int) {
@@ -407,6 +409,9 @@ func (p *Printer) printExpr(x *cc.Expr, prec int) {
 
 	case TypeAssert:
 		p.Print(exprPrec{x.Left, prec}, ".(", x.Type, ")")
+
+	case ExprType:
+		p.Print(x.Type)
 
 	case cc.Call:
 		p.Print(exprPrec{x.Left, precAddr}, "(")

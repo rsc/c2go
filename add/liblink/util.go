@@ -8,6 +8,7 @@ package liblink1
 
 import (
 	"bufio"
+	"fmt"
 	"time"
 )
 
@@ -65,6 +66,10 @@ func Boffset(b *Biobuf) int64 {
 	panic("Boffset")
 }
 
+func Bflush(b *Biobuf) error {
+	return b.w.Flush()
+}
+
 func Getgoroot() string {
 	panic("Getgoroot")
 }
@@ -83,4 +88,15 @@ func Atoi(s string) int {
 
 func Getgoarm() string {
 	panic("Getgoarm")
+}
+
+func (p *Prog) Line() string {
+	return linklinefmt(p.Ctxt, int(p.Lineno), false, false)
+}
+
+func (p *Prog) String() string {
+	if p.Ctxt == nil {
+		return fmt.Sprintf("<Prog without ctxt>")
+	}
+	return p.Ctxt.Arch.Pconv(p)
 }
