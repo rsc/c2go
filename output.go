@@ -27,6 +27,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		cfile := decl.Span.Start.File
 		gofile := strings.TrimSuffix(strings.TrimSuffix(cfile, ".c"), ".h") + ".go"
 		gofile = decl.GoPackage + "/" + filepath.Base(gofile)
+		println("DECL", decl.Name, gofile)
 		p := printers[gofile]
 		if p == nil {
 			p = new(Printer)

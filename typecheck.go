@@ -268,7 +268,8 @@ func fixGoTypes(cfg *Config, prog *cc.Prog) {
 	// TODO(rsc): Should probably remove them.
 	did := make(map[*cc.Decl]bool)
 
-	for _, decl := range prog.Decls {
+	for i := 0; i < len(prog.Decls); i++ {
+		decl := prog.Decls[i]
 		if did[decl] {
 			continue
 		}
@@ -308,7 +309,7 @@ func fixGoTypesStmt(prog *cc.Prog, fn *cc.Decl, x *cc.Stmt) {
 		if x.Expr != nil && x.Expr.Op == cc.Call && x.Expr.Left.Op == cc.Name {
 			switch x.Expr.Left.Text {
 			case "qsort":
-				// TODO fixQsort(prog, x.Expr)
+				fixQsort(prog, x.Expr)
 				return
 			case "memset":
 				fixMemset(prog, fn, x)

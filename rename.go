@@ -61,7 +61,7 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 
 	// Assign to packages (needed below but also in writeGoFiles).
 	for _, d := range prog.Decls {
-		if d.Body != nil {
+		if d.Body != nil && d.Body.Span.Start.File != "" {
 			d.Span = d.Body.Span
 		}
 		d.GoPackage = cfg.filePackage(d.Span.Start.File)
@@ -111,7 +111,7 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 	src := make(map[string]string)
 	for _, d := range decls {
 		// TODO(rsc): I don't understand why this is necessary given the above.
-		if d.Body != nil {
+		if d.Body != nil && d.Body.Span.Start.File != "" {
 			d.Span = d.Body.Span
 		}
 		d.GoPackage = cfg.filePackage(d.Span.Start.File)
