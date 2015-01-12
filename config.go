@@ -23,6 +23,10 @@ type Config struct {
 	replace  map[string]string
 	delete   map[string]bool
 	diffs    []diff
+	slice    map[string]bool
+	len      map[string]string
+	cap      map[string]string
+	typeMap  map[string]string
 
 	// derived during analysis
 	topDecls []*cc.Decl
@@ -65,6 +69,11 @@ func (cfg *Config) read(file string) {
 	lines := strings.Split(string(data), "\n")
 	cfg.replace = make(map[string]string)
 	cfg.delete = make(map[string]bool)
+	cfg.slice = make(map[string]bool)
+	cfg.len = make(map[string]string)
+	cfg.cap = make(map[string]string)
+	cfg.typeMap = make(map[string]string)
+
 	for len(lines) > 0 {
 		line := lines[0]
 		lines = lines[1:]
@@ -90,6 +99,20 @@ func (cfg *Config) read(file string) {
 		case "delete":
 			for _, name := range f[1:] {
 				cfg.delete[name] = true
+			}
+
+		case "slice":
+			if len(f) >= 2 {
+				cfg.slice[f[1]] = true
+			}
+			if len(f) >= 3 {
+				cfg.len[f[2]] = f[1]
+			}
+			if len(f) >= 4 {
+				cfg.cap[f[3]] = f[1]
+			}
+			if len(f) >= 5 {
+				log.Printf("%s:%d: extra arguments for slice", file, lineno)
 			}
 
 		case "func", "type":
@@ -157,8 +180,33 @@ func (cfg *Config) read(file string) {
 				after:  new.Bytes(),
 			})
 
+		case "typemap":
+			if len(f) != 3 {
+				log.Printf("%s:%d: invalid typemap directive", file, lineno)
+				continue
+			}
+			cfg.typeMap[f[1]] = f[2]
+
 		default:
 			log.Printf("%s:%d: unknown verb %s", file, lineno, f[0])
 		}
 	}
+}
+
+func declKey(d *cc.Decl) string {
+	key := d.Name
+	if t := d.OuterType; t != nil {
+		name := t.Name
+		if name == "" {
+			name = t.Tag
+		}
+		if name == "" {
+			name = t.String()
+		}
+		key = name + "." + key
+	}
+	if d.CurFn != nil {
+		key = declKey(d.CurFn) + "." + key
+	}
+	return key
 }

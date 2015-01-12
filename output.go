@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -30,7 +31,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		if p == nil {
 			p = new(Printer)
 			p.Package = decl.GoPackage
-			p.Print("package main\n\n")
+			p.Print("package ", path.Base(p.Package), "\n\n")
 			if p.Package != "liblink1" {
 				p.Print("import \"liblink1\"\n\n")
 			}

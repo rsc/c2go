@@ -15,6 +15,19 @@ func rewriteTypes(cfg *Config, prog cc.Syntax) {
 	// Cache is needed to cut off translation of recursive types.
 	cache := make(map[*cc.Type]*cc.Type)
 
+	cc.Postorder(prog, func(x cc.Syntax) {
+		if t, ok := x.(*cc.Type); ok {
+			if t.Kind == cc.Struct || t.Kind == cc.Enum {
+				for _, d := range t.Decls {
+					d.OuterType = t
+				}
+			}
+			if t.Kind == cc.Func && len(t.Decls) == 1 && t.Decls[0].Type.Is(cc.Void) {
+				t.Decls = nil
+			}
+		}
+	})
+
 	/*
 		t := g.canon.Def()
 		if cc.Char <= t.Kind && t.Kind <= cc.Enum {
@@ -41,7 +54,7 @@ func rewriteTypes(cfg *Config, prog cc.Syntax) {
 				g.goType = &cc.Type{Kind: String}
 				continue
 			}
-			g.goType = &cc.Type{Kind: k, Base: toGoType(nil, nil, t.Base, cache)}
+			g.goType = &cc.Type{Kind: k, Base: toGoType(cfg, nil, nil, t.Base, cache)}
 			continue
 		}
 	*/
@@ -62,17 +75,17 @@ func rewriteTypes(cfg *Config, prog cc.Syntax) {
 			if d.Init != nil && len(d.Init.Braced) > 0 && d.Type != nil && d.Type.Kind == cc.Array {
 				// Initialization of array - do not override type.
 				// But if size is not given explicitly, change to slice.
-				d.Type.Base = toGoType(nil, d.Type.Base, cache)
+				d.Type.Base = toGoType(cfg, nil, d.Type.Base, cache)
 				if d.Type.Width == nil {
 					d.Type.Kind = Slice
 				}
 				return
 			}
-			d.Type = toGoType(d, d.Type, cache)
+			d.Type = toGoType(cfg, d, d.Type, cache)
 
 		case *cc.Expr:
 			if x.Type != nil {
-				t := toGoType(nil, x.Type, cache)
+				t := toGoType(cfg, nil, x.Type, cache)
 				if t == nil {
 					fprintf(x.Span, "cannot convert %v to go type\n", GoString(x.Type))
 				}
@@ -118,7 +131,7 @@ var c2goName = map[string]cc.TypeKind{
 	"uint64": Uint64,
 }
 
-func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
+func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 	if typ == nil {
 		return nil
 	}
@@ -141,6 +154,12 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 		return &cc.Type{Kind: c2goKind[typ.Kind]}
 
 	case cc.TypedefType:
+		if cfg.typeMap[typ.Name] != "" {
+			t := &cc.Type{Kind: cc.TypedefType, Name: cfg.typeMap[typ.Name], TypeDecl: typ.TypeDecl}
+			cache[typ] = t
+			return t
+		}
+
 		// If this is a typedef like uchar, translate the type by name.
 		// Otherwise fall back to base.
 		def := typ.Base
@@ -159,7 +178,7 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 		// and preserve the name but translate the base.
 		t := &cc.Type{Kind: cc.TypedefType, Name: typ.Name, TypeDecl: typ.TypeDecl}
 		cache[typ] = t
-		t.Base = toGoType(nil, typ.Base, cache)
+		t.Base = toGoType(cfg, nil, typ.Base, cache)
 		return t
 
 	case cc.Array:
@@ -168,13 +187,13 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 		}
 		t := &cc.Type{Kind: cc.Array, Width: typ.Width}
 		cache[typ] = t
-		t.Base = toGoType(nil, typ.Base, cache)
+		t.Base = toGoType(cfg, nil, typ.Base, cache)
 		return t
 
 	case cc.Ptr:
 		t := &cc.Type{Kind: cc.Ptr}
 		cache[typ] = t
-		t.Base = toGoType(nil, typ.Base, cache)
+		t.Base = toGoType(cfg, nil, typ.Base, cache)
 
 		if typ.Base.Kind == cc.Char {
 			t.Kind = String
@@ -186,6 +205,10 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 			t.Kind = Slice
 			t.Base = byteType
 		}
+		if d, ok := x.(*cc.Decl); ok && cfg.slice[declKey(d)] {
+			t.Kind = Slice
+		}
+
 		return t
 
 	case cc.Func:
@@ -193,7 +216,7 @@ func toGoType(x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Type) *cc.Type {
 		// The Decls themselves appear in the group lists, so they'll be handled by rewriteTypes.
 		// The return value has no Decl and needs to be converted.
 		if !typ.Base.Is(cc.Void) {
-			typ.Base = toGoType(nil, typ.Base, cache)
+			typ.Base = toGoType(cfg, nil, typ.Base, cache)
 		}
 		return typ
 
