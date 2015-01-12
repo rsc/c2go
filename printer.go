@@ -273,9 +273,10 @@ var opPrec = map[cc.ExprOp]int{
 	cc.Xor:        precAdd,
 	cc.XorEq:      precLow,
 
-	AndNot:   precMul,
-	AndNotEq: precLow,
-	ColonEq:  precLow,
+	AndNot:     precMul,
+	AndNotEq:   precLow,
+	ColonEq:    precLow,
+	TypeAssert: precArrow,
 }
 
 var opStr = map[cc.ExprOp]string{
@@ -328,6 +329,7 @@ const (
 	AndNot
 	AndNotEq
 	ColonEq
+	TypeAssert
 )
 
 func (p *Printer) printExpr(x *cc.Expr, prec int) {
@@ -402,6 +404,9 @@ func (p *Printer) printExpr(x *cc.Expr, prec int) {
 			name = x.XDecl.Name
 		}
 		p.Print(exprPrec{x.Left, prec}, ".", name)
+
+	case TypeAssert:
+		p.Print(exprPrec{x.Left, prec}, ".(", x.Type, ")")
 
 	case cc.Call:
 		p.Print(exprPrec{x.Left, precAddr}, "(")

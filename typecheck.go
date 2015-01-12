@@ -151,7 +151,11 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 		return &cc.Type{Kind: cc.Struct} // struct{}
 
 	case cc.Char, cc.Uchar, cc.Short, cc.Ushort, cc.Int, cc.Uint, cc.Long, cc.Ulong, cc.Longlong, cc.Ulonglong, cc.Float, cc.Double, cc.Enum:
-		return &cc.Type{Kind: c2goKind[typ.Kind]}
+		t := &cc.Type{Kind: c2goKind[typ.Kind]}
+		if d, ok := x.(*cc.Decl); ok && cfg.bool[declKey(d)] {
+			t.Kind = Bool
+		}
+		return t
 
 	case cc.TypedefType:
 		if cfg.typeMap[typ.Name] != "" {
@@ -195,6 +199,14 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 		cache[typ] = t
 		t.Base = toGoType(cfg, nil, typ.Base, cache)
 
+		// Convert void* to interface{}.
+		if typ.Base.Kind == cc.Void {
+			t.Base = nil
+			t.Kind = cc.TypedefType
+			t.Name = "interface{}"
+			return t
+		}
+
 		if typ.Base.Kind == cc.Char {
 			t.Kind = String
 			t.Base = nil
@@ -216,7 +228,15 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 		// The Decls themselves appear in the group lists, so they'll be handled by rewriteTypes.
 		// The return value has no Decl and needs to be converted.
 		if !typ.Base.Is(cc.Void) {
-			typ.Base = toGoType(cfg, nil, typ.Base, cache)
+			if d, ok := x.(*cc.Decl); ok {
+				x = &cc.Decl{
+					Name:  "return",
+					CurFn: d,
+				}
+			} else {
+				x = nil
+			}
+			typ.Base = toGoType(cfg, x, typ.Base, cache)
 		}
 		return typ
 
@@ -277,7 +297,7 @@ func fixGoTypesStmt(prog *cc.Prog, fn *cc.Decl, x *cc.Stmt) {
 				// TODO fixQsort(prog, x.Expr)
 				return
 			case "memset":
-				// TODO fixMemset(prog, fn, x)
+				fixMemset(prog, fn, x)
 				return
 			case "free":
 				x.Op = cc.Empty
@@ -529,6 +549,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 
 	case cc.Cast:
 		fixGoTypesExpr(fn, x.Left, nil)
+		if isEmptyInterface(x.Left.XType) {
+			x.Op = TypeAssert
+		}
 		return x.Type
 
 	case cc.CastInit:
@@ -672,6 +695,20 @@ func forceGoType(fn *cc.Decl, x *cc.Expr, targ *cc.Type) {
 }
 
 func forceConvert(fn *cc.Decl, x *cc.Expr, actual, targ *cc.Type) {
+	if isEmptyInterface(targ) {
+		return
+	}
+	if isEmptyInterface(actual) {
+		old := copyExpr(x)
+		x.Op = TypeAssert
+		x.Left = old
+		x.Right = nil
+		x.List = nil
+		x.Type = targ
+		x.XType = targ
+		return
+	}
+
 	if isNumericConst(x) && targ != nil {
 		switch targ.Kind {
 		case cc.Ptr, Slice:
@@ -1143,6 +1180,23 @@ func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
 		x.XType = boolType
 		return true
 
+	case "strncmp":
+		if len(call.List) != 3 {
+			fprintf(x.Span, "unsupported %v", x)
+			return false
+		}
+		call.Left = &cc.Expr{Op: cc.Name, Text: "strings.HasPrefix"}
+		call.List = call.List[:2]
+		call.XType = boolType
+		if x.Op == cc.EqEq {
+			*x = *call
+		} else if x.Op == cc.NotEq {
+			x.Op = cc.Not
+			x.Right = nil
+		}
+		x.XType = boolType
+		return true
+
 	case "strcmp":
 		if len(call.List) != 2 {
 			fprintf(x.Span, "unsupported %v", x)
@@ -1313,6 +1367,10 @@ func isNumericConst(x *cc.Expr) bool {
 		return isNumericConst(x.Left)
 	}
 	return false
+}
+
+func isEmptyInterface(t *cc.Type) bool {
+	return t != nil && t.Kind == cc.TypedefType && t.Name == "interface{}"
 }
 
 func zeroFor(targ *cc.Type) *cc.Expr {

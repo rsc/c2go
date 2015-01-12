@@ -40,19 +40,20 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 		switch x := x.(type) {
 		case *cc.Decl:
 			if goKeyword[x.Name] {
-				x.Name = "_" + x.Name
+				// NOTE: Must put _ last so that name can be upper-cased for export.
+				x.Name += "_"
 			}
 
 		case *cc.Stmt:
 			for _, lab := range x.Labels {
 				if goKeyword[lab.Name] {
-					lab.Name = "_" + lab.Name
+					lab.Name += "_"
 				}
 			}
 			switch x.Op {
 			case cc.Goto:
 				if goKeyword[x.Text] {
-					x.Text = "_" + x.Text
+					x.Text += "_"
 				}
 			}
 		}
@@ -118,6 +119,7 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 		if count[key]++; count[key] > 1 {
 			if d.Span.String() == src[key] {
 				// Assume this is a nested header and ignore duplicates.
+				count[key] = 1
 				continue
 			}
 			fprintf(d.Span, "conflicting name %s in %s (last at %s)", d.Name, d.GoPackage, src[key])

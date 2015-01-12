@@ -60,3 +60,27 @@ func Bgetc(b *Biobuf) int {
 func Bungetc(b *Biobuf) {
 	b.haveUnget = true
 }
+
+func Boffset(b *Biobuf) int64 {
+	panic("Boffset")
+}
+
+func Getgoroot() string {
+	panic("Getgoroot")
+}
+
+func Getgoarch() string {
+	panic("Getgoarch")
+}
+
+func Getgoos() string {
+	panic("Getgoos")
+}
+
+func Atoi(s string) int {
+	panic("Atoi")
+}
+
+func Getgoarm() string {
+	panic("Getgoarm")
+}
