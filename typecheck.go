@@ -26,6 +26,20 @@ func rewriteTypes(cfg *Config, prog cc.Syntax) {
 				t.Decls = nil
 			}
 		}
+		if d, ok := x.(*cc.Decl); ok {
+			if d.Type != nil && d.Type.Kind == cc.Func {
+				for _, d1 := range d.Type.Decls {
+					d1.CurFn = d
+				}
+				if d.Body != nil {
+					for _, s := range d.Body.Block {
+						if s.Op == cc.StmtDecl {
+							s.Decl.CurFn = d
+						}
+					}
+				}
+			}
+		}
 	})
 
 	/*
