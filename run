@@ -5,20 +5,26 @@ eval $(go env)
 export GOROOT
 go install
 rm -f c2go
-rm -rf /tmp/c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
-c2go -c c2go.cfg -I $GOROOT/include $GOROOT/src/liblink/*.c
+dst=$GOROOT # !!!
+rm -rf $dst/src/cmd/internal/liblink
+c2go -c c2go.cfg -dst $dst -I $GOROOT/include $GOROOT/src/liblink/*.c
 for i in add/liblink/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
-	cat $i | grep -v 'build ignore' >/tmp/c2go/src/liblink1/$base
+	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/liblink/$base
 done
 for i in add/liblink/*/*.go; do
 	base=$(echo $i | sed 's;add/liblink/;;')
-	cat $i | grep -v 'build ignore' >/tmp/c2go/src/liblink1/$base
+	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/liblink/$base
 done
-rm /tmp/c2go/src/liblink1/bio.go
-gofmt -w /tmp/c2go # check for syntax errors, mainly
-mv /tmp/c2go/src/main /tmp/c2go/notmain
-GOPATH=/tmp/c2go goimports -w /tmp/c2go/src
-wc $(find /tmp/c2go -type f)
-GOPATH=/tmp/c2go go build -gcflags -e liblink1/...
+rm $dst/src/cmd/internal/liblink/bio.go
+gofmt -w $dst/src/cmd/internal/liblink # check for syntax errors, mainly
+rm -rf /tmp/c2gomain
+mv $dst/src/main /tmp/c2gomain
+export GOPATH=""
+goimports -w $dst/src/cmd/internal/liblink
+wc $(find $dst/src/cmd/internal/liblink -type f)
+go build -gcflags -e cmd/internal/liblink/...
+go install -gcflags -e cmd/goliblink
+GOLIBLINKEXE=$(go tool -n goliblink)
+GOLIBLINK=2 GOLIBLINKEXE=$(go tool -n goliblink) go tool 6g ~/g/go/test/helloworld.go

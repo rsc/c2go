@@ -6,6 +6,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"go/format"
 	"io/ioutil"
 	"log"
@@ -16,6 +17,8 @@ import (
 
 	"rsc.io/c2go/cc"
 )
+
+var dst = flag.String("dst", "/tmp/c2go", "GOPATH root of destination")
 
 // writeGoFiles writes prog to Go source files in a tree of packages.
 func writeGoFiles(cfg *Config, prog *cc.Prog) {
@@ -61,7 +64,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 	}
 
 	for gofile, p := range printers {
-		dstfile := filepath.Join("/tmp/c2go/src", gofile)
+		dstfile := filepath.Join(*dst+"/src", gofile)
 		os.MkdirAll(filepath.Dir(dstfile), 0777)
 		buf := p.Bytes()
 

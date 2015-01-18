@@ -4,11 +4,14 @@
 
 // +build ignore
 
-package liblink1
+package liblink
 
 import (
 	"bufio"
 	"fmt"
+	"go/build"
+	"io"
+	"strconv"
 	"time"
 )
 
@@ -26,6 +29,10 @@ type Biobuf struct {
 	haveUnget bool
 	r         *bufio.Reader
 	w         *bufio.Writer
+}
+
+func Binitw(w io.Writer) *Biobuf {
+	return &Biobuf{w: bufio.NewWriter(w)}
 }
 
 func (b *Biobuf) Write(p []byte) (int, error) {
@@ -71,19 +78,20 @@ func Bflush(b *Biobuf) error {
 }
 
 func Getgoroot() string {
-	panic("Getgoroot")
+	return build.Default.GOROOT
 }
 
 func Getgoarch() string {
-	panic("Getgoarch")
+	return build.Default.GOARCH
 }
 
 func Getgoos() string {
-	panic("Getgoos")
+	return build.Default.GOOS
 }
 
 func Atoi(s string) int {
-	panic("Atoi")
+	i, _ := strconv.Atoi(s)
+	return i
 }
 
 func Getgoarm() string {
