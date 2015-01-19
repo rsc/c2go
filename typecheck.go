@@ -6,6 +6,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"rsc.io/c2go/cc"
 )
@@ -1422,7 +1424,7 @@ func zeroFor(targ *cc.Type) *cc.Expr {
 	return &cc.Expr{Op: cc.Number, Text: "0 /*untyped*/"}
 }
 
-/*
+// rewriteLen rewrites references to length/capacity fields to use len(f) and cap(f) instead.
 func rewriteLen(cfg *Config, prog *cc.Prog) {
 	cc.Postorder(prog, func(x cc.Syntax) {
 		switch x := x.(type) {
@@ -1438,12 +1440,29 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 				return
 			}
 
+			if x.Op == cc.Call {
+				// Rewrite call with args x, len(x) to drop len(x).
+				var out []*cc.Expr
+				for _, arg := range x.List {
+					if arg.Op == cc.Call && arg.Left.Op == cc.Name && arg.Left.Text == "len" && len(arg.List) == 1 && len(out) > 0 && arg.List[0].String() == out[len(out)-1].String() {
+						continue
+					}
+					out = append(out, arg)
+				}
+				x.List = out
+			}
+
 			if (x.Op == cc.Arrow || x.Op == cc.Dot) && x.XDecl != nil {
-					k := declKey(x.XDecl)
-					name := cfg.Len[k]
+				k := declKey(x.XDecl)
+				name := cfg.len[k]
+				op := "len"
+				if name == "" {
+					name = cfg.cap[k]
+					op = "cap"
 					if name == "" {
 						return
 					}
+				}
 				d := x.XDecl
 				if d.OuterType == nil {
 					fmt.Fprintf(os.Stderr, "found use of %s but missing type\n", k)
@@ -1451,6 +1470,9 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 				}
 				t := d.OuterType
 				var other *cc.Decl
+				if i := strings.Index(name, "."); i >= 0 {
+					name = name[i+1:]
+				}
 				for _, dd := range t.Decls {
 					if dd.Name == name {
 						other = dd
@@ -1465,7 +1487,7 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 				x.Op = cc.Call
 				x.Left = &cc.Expr{
 					Op:    cc.Name,
-					Text:  "len",
+					Text:  op,
 					XType: &cc.Type{Kind: cc.Func, Base: intType},
 				}
 				x.List = []*cc.Expr{
@@ -1480,18 +1502,17 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 		}
 	})
 
-		cc.Postorder(prog, func(x cc.Syntax) {
-			switch x := x.(type) {
-			case *cc.Type:
-				out := x.Decls[:0]
-				for _, d := range x.Decls {
-					k := declKey(d)
-					if cfg.Len[k] == "" && !cfg.Delete[k] {
-						out = append(out, d)
-					}
+	cc.Postorder(prog, func(x cc.Syntax) {
+		switch x := x.(type) {
+		case *cc.Type:
+			out := x.Decls[:0]
+			for _, d := range x.Decls {
+				k := declKey(d)
+				if cfg.len[k] == "" && cfg.cap[k] == "" && !cfg.delete[k] {
+					out = append(out, d)
 				}
-				x.Decls = out
 			}
-		})
+			x.Decls = out
+		}
+	})
 }
-*/

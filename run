@@ -28,3 +28,4 @@ go build -gcflags -e cmd/internal/liblink/...
 go install -gcflags -e cmd/goliblink
 GOLIBLINKEXE=$(go tool -n goliblink)
 GOLIBLINK=2 GOLIBLINKEXE=$(go tool -n goliblink) go tool 6g ~/g/go/test/helloworld.go
+GOLIBLINK=2 GOLIBLINKEXE=$(go tool -n goliblink) go build -work -a strings

@@ -57,6 +57,7 @@ func main() {
 	}
 	rewriteTypes(cfg, prog)
 	rewriteSyntax(cfg, prog)
+	rewriteLen(cfg, prog)
 	fixGoTypes(cfg, prog)
 	renameDecls(cfg, prog)
 	exportDecls(cfg, prog)
