@@ -6,7 +6,7 @@
 // and data objects.  The compilers, assemblers, and linker must
 // all agree on these values.
 
-package liblink
+package obj
 
 const (
 	// Don't profile the marked routine.  This flag is deprecated.

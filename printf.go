@@ -14,7 +14,7 @@ import (
 )
 
 func tryPrintf(curfn *cc.Decl, x *cc.Expr, name string, fmtpos int, newName string) bool {
-	if (x.Left.Text == name || strings.Contains(name, ".") && x.Left.String() == name) && len(x.List) >= fmtpos+1 && x.List[fmtpos].Op == cc.String && len(x.List[fmtpos].Texts) == 1 {
+	if (x.Left.Text == name || (strings.Contains(name, ".") || strings.Contains(name, "->")) && x.Left.String() == name) && len(x.List) >= fmtpos+1 && x.List[fmtpos].Op == cc.String && len(x.List[fmtpos].Texts) == 1 {
 		fixPrintFormat(curfn, x.List[fmtpos], x.List[fmtpos+1:])
 		x.Left.Text = newName
 		x.Left.XDecl = nil
@@ -69,7 +69,7 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	if tryPrintf(curfn, x, "sysfatal", 0, "log.Fatalf") {
 		return true
 	}
-	if tryPrintf(curfn, x, "ctxt.diag", 0, "ctxt.diag") {
+	if tryPrintf(curfn, x, "ctxt->diag", 0, "Diag") {
 		return true
 	}
 	if tryPrintf(curfn, x, "Bprint", 1, "fmt.Fprintf") {
@@ -212,6 +212,13 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 			}
 			buf.WriteString("%v")
 			convert = "RAconv" + suffix
+
+		case '^':
+			if allFlags != "%" {
+				fprintf(fx.Span, "format %s%c", allFlags, verb)
+			}
+			buf.WriteString("%v")
+			convert = "DRconv" + suffix
 
 		case 'D':
 			if allFlags != "%" && allFlags != "%l" {

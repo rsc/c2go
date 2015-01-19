@@ -4,13 +4,14 @@
 
 // +build ignore
 
-package liblink
+package obj
 
 import (
 	"bufio"
 	"fmt"
 	"go/build"
 	"io"
+	"os"
 	"strconv"
 	"time"
 )
@@ -95,7 +96,11 @@ func Atoi(s string) int {
 }
 
 func Getgoarm() string {
-	panic("Getgoarm")
+	env := os.Getenv("GOARM")
+	if env != "" {
+		return env
+	}
+	return "5"
 }
 
 func (p *Prog) Line() string {
