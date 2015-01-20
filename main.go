@@ -14,7 +14,7 @@
 // good starting point, but you will certainly need to understand and
 // modify the source code.
 //
-package main
+package main // import "rsc.io/c2go"
 
 import (
 	"flag"

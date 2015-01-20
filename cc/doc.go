@@ -2,5 +2,5 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package cfront implements parsing, type checking, and printing of C programs.
-package cc
+// Package cc implements parsing, type checking, and printing of C programs.
+package cc // import "rsc.io/c2go/cc"
