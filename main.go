@@ -2,6 +2,18 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// C2go converts C programs to Go.
+// It is a custom tool written to support the migration of the Go toolchain from C to Go.
+// An earlier variant of it helped with the conversion of Go's package runtime.
+//
+// Warning Warning Warning
+//
+// C2go is not a magic wand, nor even a general purpose tool.
+// There is no documentation, and it will not convert your C program.
+// If you have a large code base to convert, you might find c2go a
+// good starting point, but you will certainly need to understand and
+// modify the source code.
+//
 package main
 
 import (
