@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"rsc.io/c2go/cc"
+	"github.com/rsc/c2go/cc"
 )
 
 // rewriteTypes rewrites C types appearing in the program to equivalent Go types.

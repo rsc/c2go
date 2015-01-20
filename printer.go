@@ -11,7 +11,7 @@ import (
 	"path"
 	"strings"
 
-	"rsc.io/c2go/cc"
+	"github.com/rsc/c2go/cc"
 )
 
 type PrintSpecial int

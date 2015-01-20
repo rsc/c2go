@@ -7,7 +7,7 @@ package main
 import (
 	"fmt"
 
-	"rsc.io/c2go/cc"
+	"github.com/rsc/c2go/cc"
 )
 
 // Rewrite from C constructs to Go constructs.
