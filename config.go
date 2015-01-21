@@ -29,6 +29,7 @@ type Config struct {
 	typeMap  map[string]string
 	bool     map[string]bool
 	ptr      map[string]bool
+	rename   map[string]string
 
 	// derived during analysis
 	topDecls []*cc.Decl
@@ -77,6 +78,7 @@ func (cfg *Config) read(file string) {
 	cfg.typeMap = make(map[string]string)
 	cfg.bool = make(map[string]bool)
 	cfg.ptr = make(map[string]bool)
+	cfg.rename = make(map[string]string)
 
 	for len(lines) > 0 {
 		line := lines[0]
@@ -200,6 +202,13 @@ func (cfg *Config) read(file string) {
 				continue
 			}
 			cfg.typeMap[f[1]] = f[2]
+
+		case "rename":
+			if len(f) != 3 {
+				log.Printf("%s:%d: invalid rename directive", file, lineno)
+				continue
+			}
+			cfg.rename[f[1]] = f[2]
 
 		default:
 			log.Printf("%s:%d: unknown verb %s", file, lineno, f[0])

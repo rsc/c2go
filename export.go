@@ -34,6 +34,10 @@ func exportDecls(cfg *Config, prog *cc.Prog) {
 			}
 		})
 	}
+
+	for _, d := range cfg.topDecls {
+		renameDecl(cfg, d)
+	}
 }
 
 func shouldExport(cfg *Config, name string) bool {
@@ -50,6 +54,10 @@ func exportDecl(d *cc.Decl) {
 	if d.Storage&cc.Typedef != 0 && d.Type.Kind == cc.Struct {
 		for _, dd := range d.Type.Decls {
 			exportDecl(dd)
+			// type became type_, became Type_. Drop underscore now that it's not needed.
+			if strings.HasSuffix(dd.Name, "_") && goKeyword[strings.ToLower(dd.Name[:len(dd.Name)-1])] {
+				dd.Name = dd.Name[:len(dd.Name)-1]
+			}
 			if dd.Name == "U" {
 				for _, dd := range dd.Type.Decls {
 					exportDecl(dd)
@@ -62,4 +70,21 @@ func exportDecl(d *cc.Decl) {
 func exportName(name string) string {
 	_, size := utf8.DecodeRuneInString(name)
 	return strings.ToUpper(name[:size]) + name[size:]
+}
+
+func renameDecl(cfg *Config, d *cc.Decl) {
+	key := declKey(d)
+	if cfg.rename[key] != "" {
+		d.Name = cfg.rename[key]
+	}
+	if d.Storage&cc.Typedef != 0 && d.Type.Kind == cc.Struct {
+		for _, dd := range d.Type.Decls {
+			renameDecl(cfg, dd)
+			if dd.Name == "U" {
+				for _, dd := range dd.Type.Decls {
+					renameDecl(cfg, dd)
+				}
+			}
+		}
+	}
 }
