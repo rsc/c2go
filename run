@@ -7,8 +7,10 @@ go install
 rm -f c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
 dst=$GOROOT # !!!
+cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
 rm -rf $dst/src/cmd/internal/obj
 c2go -c c2go.cfg -dst $dst -I $GOROOT/include $GOROOT/src/liblink/*.c
+cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/obj/$base
@@ -24,7 +26,7 @@ mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
 goimports -w $dst/src/cmd/internal/obj
 wc $(find $dst/src/cmd/internal/obj -type f)
-go install -gcflags -e cmd/internal/obj... cmd/objwriter
+go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a
 GOOBJ=2 go tool 6g ~/g/go/test/helloworld.go
 GOOBJ=2 go build -work -a strings
 go tool dist install cmd/{5,6,8,9}{a,g,l}
