@@ -50,6 +50,14 @@ void strcat(char*, char*);
 
 int atoi(char*);
 ulong strtoul(char*, char**, int);
+long strtol(char*, char**, int);
+vlong strtoll(char*, char**, int);
+int isspace(int);
+int close(int);
+int read(int, void*, int);
+double atof(char*);
+int create(char*, int, int);
+int open(char*, int);
 uvlong strtoull(char*, char**, int);
 char *getenv(char*);
 int getwd(char*, int);
