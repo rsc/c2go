@@ -6,10 +6,12 @@ export GOROOT
 go install
 rm -f c2go
 rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
+rm -f $GOROOT/src/cmd/gc/mkbuiltin1.c $GOROOT/src/cmd/gc/y.tab.c # implement 'build ignore' comment
 dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
+trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj" 0
 rm -rf $dst/src/cmd/internal/obj
-c2go -c c2go.cfg -dst $dst -I $GOROOT/include $GOROOT/src/liblink/*.c
+c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
@@ -24,9 +26,9 @@ gofmt -w $dst/src/cmd/internal/obj # check for syntax errors, mainly
 rm -rf /tmp/c2gomain
 mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
-goimports -w $dst/src/cmd/internal/obj
+goimports -w $dst/src/cmd/new* $dst/src/cmd/internal
 wc $(find $dst/src/cmd/internal/obj -type f)
-go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a
+go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a cmd/internal/gc cmd/new6g 
 
 exit 0
 

@@ -732,7 +732,7 @@ const (
 
 func (p *Printer) printType(t *cc.Type) {
 	if t == nil {
-		p.Print("<nil type>")
+		p.Print("nil_type")
 		return
 	}
 

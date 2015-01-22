@@ -295,6 +295,10 @@ func fixGoTypes(cfg *Config, prog *cc.Prog) {
 			fixGoTypesStmt(prog, decl, decl.Body)
 		}
 	}
+
+	// fixGoTypes might have introduced an (x = fmt.Sprintf(...)) in a larger expression.
+	// rewrite it out.
+	rewriteSyntax(cfg, prog)
 }
 
 func fixGoTypesInit(decl *cc.Decl, x *cc.Init) {

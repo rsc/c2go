@@ -114,7 +114,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 		for i < len(format) {
 			c := format[i]
 			switch c {
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '#', '-', '.', ',', ' ', 'h', 'l', 'u':
+			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '#', '-', '.', ',', ' ', 'h', 'l', 'u', '*':
 				i++
 				continue
 			}
@@ -178,6 +178,11 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 					convert = "uint"
 				}
 			}
+
+		case 'q': // plan 9 rc(1) quoted string
+			buf.WriteString(flags)
+			buf.WriteString("%v")
+			convert = "plan9quote"
 
 		case 'A': // asm opcode
 			if allFlags != "%" {
@@ -269,6 +274,70 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 				fprintf(fx.Span, "format %s%c", allFlags, verb)
 			}
 			buf.WriteString("%v")
+
+		case 'r': // plan 9 errstr
+			buf.WriteString("%v")
+			if narg > len(args) {
+				break
+			}
+			args = append(append(args[:narg:narg], &cc.Expr{Op: cc.Name, Text: "err"}), args[narg:]...)
+
+		case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+			f := allFlags
+			mod := "0"
+			if strings.Contains(f, "-") {
+				mod += "|flagMinus"
+				f = strings.Replace(f, "-", "", 1)
+			}
+			if strings.Contains(f, "h") {
+				mod += "|flagShort"
+				f = strings.Replace(f, "h", "", 1)
+				if strings.Contains(f, "h") {
+					mod += "|flagByte"
+					f = strings.Replace(f, "h", "", 1)
+				}
+			}
+			if strings.Contains(f, "#") {
+				mod += "|flagSharp"
+				f = strings.Replace(f, "#", "", 1)
+			}
+			if strings.Contains(f, "l") {
+				mod += "|flagLong"
+				f = strings.Replace(f, "l", "", 1)
+			}
+			if strings.Contains(f, ",") {
+				mod += "|flagComma"
+				f = strings.Replace(f, ",", "", 1)
+			}
+			if strings.Contains(f, "+") {
+				mod += "|flagPlus"
+				f = strings.Replace(f, "+", "", 1)
+			}
+			if strings.Contains(f, "u") {
+				mod += "|flagUnsigned"
+				f = strings.Replace(f, "u", "", 1)
+			}
+			if f != "%" {
+				fprintf(fx.Span, "format %s%c", allFlags, verb)
+			}
+			buf.WriteString("%v")
+			if narg >= len(args) {
+				break
+			}
+			if mod != "0" {
+				mod = mod[2:]
+			}
+			flag := &cc.Expr{Op: cc.Name, Text: mod}
+			arg := args[narg]
+			args[narg] = &cc.Expr{
+				Op:   cc.Call,
+				Left: &cc.Expr{Op: cc.Name, Text: string(verb) + "conv"},
+				List: []*cc.Expr{
+					flag,
+					arg,
+				},
+				XType: stringType,
+			}
 		}
 
 		if convert != "" && narg < len(args) {

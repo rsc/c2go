@@ -41,6 +41,15 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 				pkg = "main"
 			}
 			p.Print("package ", pkg, "\n\n")
+			switch p.Package {
+			case "cmd/new6g":
+				p.Print(`import "cmd/internal/obj"`, "\n")
+				p.Print(`import "cmd/internal/gc"`, "\n")
+
+			case "cmd/internal/gc":
+				p.Print(`import "cmd/internal/obj"`, "\n")
+			}
+
 			printers[gofile] = p
 		}
 
@@ -79,6 +88,9 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		if err == nil {
 			buf = buf1
 		}
+
+		// Not sure where these blank lines come from.
+		buf = bytes.Replace(buf, []byte("{\n\n"), []byte("{\n"), -1)
 
 		buf = fixCopyright(gofile, cfiles[gofile], buf)
 

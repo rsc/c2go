@@ -10,8 +10,11 @@ import (
 	"rsc.io/c2go/cc"
 )
 
+var numRewrite int
+
 // Rewrite from C constructs to Go constructs.
 func rewriteSyntax(cfg *Config, prog *cc.Prog) {
+	numRewrite++
 	cc.Preorder(prog, func(x cc.Syntax) {
 		switch x := x.(type) {
 		case *cc.Stmt:
@@ -204,6 +207,9 @@ func rewriteStmt(stmt *cc.Stmt) {
 		}
 
 	case cc.If, cc.Return:
+		if stmt.Op == cc.If && stmt.Else == nil {
+			fixAndAndAssign(stmt)
+		}
 		before, _ := extractSideEffects(stmt.Expr, sideNoAfter)
 		if len(before) > 0 {
 			old := copyStmt(stmt)
@@ -243,6 +249,58 @@ func rewriteStmt(stmt *cc.Stmt) {
 	}
 }
 
+// fixAndAndAssign rewrites if(x && (y = z) ...) ...  to if(x) { y = z; if(...) ... }
+func fixAndAndAssign(stmt *cc.Stmt) {
+	changed := false
+	clauses := splitExpr(stmt.Expr, cc.AndAnd)
+	for i := len(clauses) - 1; i > 0; i-- {
+		before, _ := extractSideEffects(clauses[i], sideNoAfter)
+		if len(before) == 0 {
+			continue
+		}
+		changed = true
+		stmt.Body = &cc.Stmt{
+			Op: BlockNoBrace,
+			Block: append(before, &cc.Stmt{
+				Op:   cc.If,
+				Expr: joinExpr(clauses[i:], cc.AndAnd),
+				Body: stmt.Body,
+			}),
+		}
+		clauses = clauses[:i]
+	}
+	if changed {
+		stmt.Expr = joinExpr(clauses, cc.AndAnd)
+	}
+}
+
+func splitExpr(x *cc.Expr, op cc.ExprOp) []*cc.Expr {
+	if x == nil {
+		return nil
+	}
+	var list []*cc.Expr
+	for x.Op == op {
+		list = append(list, x.Right)
+		x = x.Left
+	}
+	list = append(list, x)
+	for i, j := 0, len(list)-1; i < j; i, j = i+1, j-1 {
+		list[i], list[j] = list[j], list[i]
+	}
+	return list
+}
+
+func joinExpr(list []*cc.Expr, op cc.ExprOp) *cc.Expr {
+	if len(list) == 0 {
+		return nil
+	}
+	x := list[0]
+	for _, y := range list[1:] {
+		x = &cc.Expr{Op: op, Left: x, Right: y}
+	}
+	return x
+}
+
 func rewriteSwitch(swt *cc.Stmt) {
 	var out []*cc.Stmt
 	for _, stmt := range swt.Body.Block {
@@ -260,7 +318,7 @@ func rewriteSwitch(swt *cc.Stmt) {
 		}
 		if len(cases) > 0 {
 			// Add fallthrough if needed.
-			if len(out) > 0 {
+			if len(out) > 0 && numRewrite == 1 {
 				last := out[len(out)-1]
 				if last.Op == cc.Break && len(last.Labels) == 0 {
 					last.Op = cc.Empty
