@@ -289,7 +289,7 @@ func fixGoTypes(cfg *Config, prog *cc.Prog) {
 		}
 		if decl.Body != nil {
 			t := decl.Type
-			if t != nil && t.Kind == cc.Func && t.Base.Is(Int) && len(t.Decls) == 1 && t.Decls[0].Type.String() == "Fmt*" {
+			if t != nil && t.Kind == cc.Func && t.Base.Is(Int) && len(t.Decls) >= 1 && t.Decls[0].Type.String() == "Fmt*" {
 				fixFormatter(decl)
 			}
 			fixGoTypesStmt(prog, decl, decl.Body)
@@ -314,6 +314,9 @@ func fixGoTypesStmt(prog *cc.Prog, fn *cc.Decl, x *cc.Stmt) {
 	if x == nil {
 		return
 	}
+
+	fixArrayStmt(fn, x)
+	fixFormatStmt(fn, x)
 
 	switch x.Op {
 	case cc.StmtDecl:
@@ -421,9 +424,15 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 		}
 	}
 
+	fixArray(fn, x)
+
 	switch x.Op {
 	default:
 		panic(fmt.Sprintf("unexpected construct %v in fixGoTypesExpr - %v - %v", GoString(x), x.Op, x.Span))
+
+	case ExprType:
+		// inserted by a rewrite
+		return nil
 
 	case ExprSlice:
 		// inserted by rewriteLen
@@ -511,6 +520,12 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 
 		forceGoType(fn, x.Right, left)
 
+		if x.Op == cc.Eq && x.Left != nil && x.Right != nil && x.Right.XType != nil && isCall(x.Right, "make") && x.Left.XDecl != nil && x.Left.XDecl.Type != nil && x.Left.XDecl.Type.Kind == cc.Ptr && sameType(x.Left.XDecl.Type.Base, x.Right.XType.Base) {
+			x.Left.XDecl.Type = x.Right.XType
+			x.Left.XType = x.Right.XType
+			left = x.Right.XType
+		}
+
 		return left
 
 	case ColonEq:
@@ -592,7 +607,7 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 			return boolType
 		}
 		left := fixGoTypesExpr(fn, x.Left, nil)
-		if x.Right.Op == cc.Number && x.Right.Text == "0" {
+		if x.Right.Op == cc.Number && x.Right.Text == "0" || x.Right.Op == cc.Name && x.Right.Text == "nil" {
 			if isSliceOrPtr(left) {
 				x.Right.Op = cc.Name
 				x.Right.Text = "nil"
@@ -631,6 +646,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 
 		switch left.Kind {
 		case cc.Ptr, Slice, cc.Array:
+			if x.Op == cc.Indir && left.Kind == cc.Ptr && left.Base.Kind == cc.Func {
+				*x = *x.Left
+			}
 			return left.Base
 
 		case String:
@@ -752,9 +770,20 @@ func forceConvert(fn *cc.Decl, x *cc.Expr, actual, targ *cc.Type) {
 				x.Text = `""`
 				x.XType = targ
 			}
-
 		}
 		return
+	}
+
+	if x.Op == cc.Name && x.Text == "nil" && targ != nil {
+		switch targ.Kind {
+		case cc.Func, cc.Ptr, Slice:
+			return
+		case String:
+			x.Text = `""`
+			x.XType = targ
+			x.XDecl = nil
+			return
+		}
 	}
 
 	if actual == nil || targ == nil {
@@ -804,6 +833,9 @@ func forceConvert(fn *cc.Decl, x *cc.Expr, actual, targ *cc.Type) {
 	}
 
 	if actual.Kind == Slice && targ.Kind == cc.Ptr && sameType(actual.Base, targ.Base) {
+		if isCall(x, "make") {
+			return
+		}
 		old := copyExpr(x)
 		x.Op = cc.Addr
 		x.Left = &cc.Expr{Op: cc.Index, Left: old, Right: &cc.Expr{Op: cc.Number, Text: "0"}}
@@ -971,7 +1003,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		fprintf(x.Span, "unsupported %v (%v %v)", x, GoString(left), GoString(right))
 		return true
 
-	case "mal", "malloc", "emallocz":
+	case "mal", "malloc", "emallocz", "xmalloc":
 		if len(x.List) != 1 {
 			fprintf(x.Span, "unsupported %v - too many args", x)
 			return false
@@ -981,6 +1013,9 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		if siz.Op == cc.Mul {
 			count = siz.Left
 			siz = siz.Right
+			if count.Op == cc.SizeofType || count.Op == cc.SizeofExpr {
+				count, siz = siz, count
+			}
 		}
 		var typ *cc.Type
 		switch siz.Op {
@@ -1059,11 +1094,13 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		}
 		left := fixGoTypesExpr(fn, x.List[0], targ)
 		right := fixGoTypesExpr(fn, x.List[1], targ)
+		forceConvert(fn, x.List[0], left, uint32Type)
+		forceConvert(fn, x.List[1], right, uint32Type)
 		x.Op = cc.Or
 		x.Left = &cc.Expr{Op: cc.Lsh, Left: x.List[0], Right: &cc.Expr{Op: cc.Number, Text: "16"}, XType: left}
 		x.Right = x.List[1]
 		x.List = nil
-		x.XType = fixBinary(fn, x, left, right, targ)
+		x.XType = uint32Type
 		return true
 	}
 
@@ -1180,7 +1217,7 @@ func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 }
 
 func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
-	if x.Right.Op != cc.Number || x.Right.Text != "0" || x.Left.Op != cc.Call || x.Left.Left.Op != cc.Name {
+	if (x.Right.Op != cc.Number || x.Right.Text != "0") && x.Right.String() != "nil" || x.Left.Op != cc.Call || x.Left.Left.Op != cc.Name {
 		return false
 	}
 
@@ -1220,6 +1257,22 @@ func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
 		if x.Op == cc.EqEq {
 			*x = *call
 		} else if x.Op == cc.NotEq {
+			x.Op = cc.Not
+			x.Right = nil
+		}
+		x.XType = boolType
+		return true
+
+	case "strstr":
+		if len(call.List) != 2 {
+			fprintf(x.Span, "unsupported %v", x)
+			return false
+		}
+		call.Left = &cc.Expr{Op: cc.Name, Text: "strings.Contains"}
+		call.XType = boolType
+		if x.Op == cc.NotEq {
+			*x = *call
+		} else if x.Op == cc.EqEq {
 			x.Op = cc.Not
 			x.Right = nil
 		}

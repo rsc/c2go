@@ -61,6 +61,9 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 		x.List = nil
 		x.Left = targ
 		x.Op = cc.AddEq
+		if x.Left.Op == cc.Addr {
+			x.Left = x.Left.Left
+		}
 		return true
 	}
 	if tryPrintf(curfn, x, "print", 0, "fmt.Printf") {
@@ -77,6 +80,29 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	}
 	if tryPrintf(curfn, x, "smprint", 0, "fmt.Sprintf") {
 		return true
+	}
+
+	if isCall(x, "exprfmt") && len(x.List) == 3 {
+		// exprfmt(fp, x, y) becomes fp += exprfmt(x, y)
+		x.Op = cc.AddEq
+		x.Right = &cc.Expr{Op: cc.Call, Left: x.Left, List: x.List[1:]}
+		x.Left = x.List[0]
+		x.List = nil
+		x.XType = stringType
+		return true
+	}
+
+	if isCall(x, "fmtstrinit") && len(x.List) == 1 && x.List[0].Op == cc.Addr {
+		x.Op = cc.Eq
+		x.Left = x.List[0].Left
+		x.List = nil
+		x.Right = &cc.Expr{Op: cc.Name, Text: `""`}
+	}
+
+	if isCall(x, "fmtstrflush") && len(x.List) == 1 && x.List[0].Op == cc.Addr {
+		x.Op = cc.Paren
+		x.Left = x.List[0].Left
+		x.List = nil
 	}
 
 	return false
@@ -142,6 +168,8 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 			n, _ := strconv.Atoi(flags[j+2 : k])
 			flags = flags[:j+2] + fmt.Sprint(n-2) + flags[k:]
 		}
+
+		narg += strings.Count(allFlags, "*")
 
 		convert := ""
 		switch verb {
@@ -283,38 +311,42 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 			args = append(append(args[:narg:narg], &cc.Expr{Op: cc.Name, Text: "err"}), args[narg:]...)
 
 		case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+			switch verb {
+			case 'O':
+				convert = "int"
+			}
 			f := allFlags
 			mod := "0"
 			if strings.Contains(f, "-") {
-				mod += "|flagMinus"
+				mod += "|fmtMinus"
 				f = strings.Replace(f, "-", "", 1)
 			}
 			if strings.Contains(f, "h") {
-				mod += "|flagShort"
+				mod += "|fmtShort"
 				f = strings.Replace(f, "h", "", 1)
 				if strings.Contains(f, "h") {
-					mod += "|flagByte"
+					mod += "|fmtByte"
 					f = strings.Replace(f, "h", "", 1)
 				}
 			}
 			if strings.Contains(f, "#") {
-				mod += "|flagSharp"
+				mod += "|fmtSharp"
 				f = strings.Replace(f, "#", "", 1)
 			}
 			if strings.Contains(f, "l") {
-				mod += "|flagLong"
+				mod += "|fmtLong"
 				f = strings.Replace(f, "l", "", 1)
 			}
 			if strings.Contains(f, ",") {
-				mod += "|flagComma"
+				mod += "|fmtComma"
 				f = strings.Replace(f, ",", "", 1)
 			}
 			if strings.Contains(f, "+") {
-				mod += "|flagPlus"
+				mod += "|fmtPlus"
 				f = strings.Replace(f, "+", "", 1)
 			}
 			if strings.Contains(f, "u") {
-				mod += "|flagUnsigned"
+				mod += "|fmtUnsigned"
 				f = strings.Replace(f, "u", "", 1)
 			}
 			if f != "%" {
@@ -328,13 +360,17 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 				mod = mod[2:]
 			}
 			flag := &cc.Expr{Op: cc.Name, Text: mod}
+			if convert != "" {
+				args[narg] = &cc.Expr{Op: cc.Call, Left: &cc.Expr{Op: cc.Name, Text: convert}, List: []*cc.Expr{args[narg]}, XType: stringType}
+				convert = ""
+			}
 			arg := args[narg]
 			args[narg] = &cc.Expr{
 				Op:   cc.Call,
 				Left: &cc.Expr{Op: cc.Name, Text: string(verb) + "conv"},
 				List: []*cc.Expr{
-					flag,
 					arg,
+					flag,
 				},
 				XType: stringType,
 			}
@@ -391,15 +427,23 @@ func fixFormatter(fn *cc.Decl) {
 		}
 	})
 
-	if arg == nil {
-		fprintf(fn.Span, "missing va_arg in formatter")
-		return
-	}
-
 	fp := fn.Type.Decls[0]
 	fp.Type = stringType
-	fn.Type.Decls[0] = arg.XDecl
 	fn.Type.Base = stringType
+	if arg != nil {
+		fn.Type.Decls[0] = arg.XDecl
+	} else {
+		if len(fn.Type.Decls) == 1 {
+			fprintf(fn.Span, "missing va_arg in formatter")
+			return
+		}
+		fn.Type.Decls = fn.Type.Decls[1:]
+		decl := &cc.Stmt{
+			Op:   cc.StmtDecl,
+			Decl: fp,
+		}
+		fn.Body.Block = append([]*cc.Stmt{decl}, fn.Body.Block...)
+	}
 
 	if strings.HasPrefix(fn.Name, "Dconv") && len(ps) > 0 {
 		pd := &cc.Decl{Name: "p", Type: ps[0].XDecl.Type}
@@ -413,11 +457,20 @@ func fixFormatter(fn *cc.Decl) {
 			arg.XDecl,
 		}
 	}
+	if len(fn.Name) == 5 && strings.HasSuffix(fn.Name, "conv") {
+		switch fn.Name[0] {
+		case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+			fn.Type.Decls = append(fn.Type.Decls, &cc.Decl{
+				Name: "flag",
+				Type: intType,
+			})
+		}
+	}
 
 	cc.Preorder(fn.Body, func(x cc.Syntax) {
 		switch x := x.(type) {
 		case *cc.Stmt:
-			if x.Op == cc.StmtDecl && x.Decl == arg.XDecl {
+			if arg != nil && x.Op == cc.StmtDecl && x.Decl == arg.XDecl {
 				x.Decl = fp
 			}
 
@@ -443,4 +496,11 @@ func fixFormatter(fn *cc.Decl) {
 		}
 	})
 
+}
+
+func fixFormatStmt(fn *cc.Decl, x *cc.Stmt) {
+	if x.Op == cc.StmtDecl && GoString(x.Decl.Type) == "Fmt" {
+		x.Decl.Type = stringType
+		return
+	}
 }

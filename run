@@ -9,7 +9,7 @@ rm -f $GOROOT/src/liblink/sched9.c # implement 'build ignore' comment
 rm -f $GOROOT/src/cmd/gc/mkbuiltin1.c $GOROOT/src/cmd/gc/y.tab.c # implement 'build ignore' comment
 dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
-trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj" 0
+trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj && cd $dst/src/cmd/gc && git checkout HEAD mkbuiltin1.c y.tab.c" 0
 rm -rf $dst/src/cmd/internal/obj
 c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
@@ -21,6 +21,11 @@ for i in add/obj/*/*.go; do
 	base=$(echo $i | sed 's;add/obj/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/obj/$base
 done
+for i in add/gc/*.go; do
+	base=$(echo $i | sed 's;.*/;;')
+	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
+done
+rm $dst/src/cmd/internal/gc/lex.go # temporary, too broken
 rm $dst/src/cmd/internal/obj/bio.go
 gofmt -w $dst/src/cmd/internal/obj # check for syntax errors, mainly
 rm -rf /tmp/c2gomain
