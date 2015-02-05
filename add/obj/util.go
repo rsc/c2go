@@ -48,6 +48,31 @@ func (b *Biobuf) Write(p []byte) (int, error) {
 	return b.w.Write(p)
 }
 
+func Bwritestring(b *Biobuf, p string) (int, error) {
+	return b.w.WriteString(p)
+}
+
+func Bseek(b *Biobuf, offset int64, whence int) {
+	if err := b.w.Flush(); err != nil {
+		log.Fatal("writing output: %v", err)
+	}
+	_, err := b.f.Seek(offset, whence)
+	if err != nil {
+		log.Fatal("seeking in output: %v", err)
+	}
+}
+
+func Boffset(b *Biobuf) int64 {
+	if err := b.w.Flush(); err != nil {
+		log.Fatal("writing output: %v", err)
+	}
+	off, err := b.f.Seek(0, 1)
+	if err != nil {
+		log.Fatal("seeking in output: %v", err)
+	}
+	return off
+}
+
 func (b *Biobuf) Flush() error {
 	return b.w.Flush()
 }
@@ -76,10 +101,6 @@ func Bgetc(b *Biobuf) int {
 
 func Bungetc(b *Biobuf) {
 	b.haveUnget = true
-}
-
-func Boffset(b *Biobuf) int64 {
-	panic("Boffset")
 }
 
 func Bflush(b *Biobuf) error {
@@ -146,4 +167,12 @@ func (ctxt *Link) NewProg() *Prog {
 
 func (ctxt *Link) Line(n int) string {
 	return Linklinefmt(ctxt, n, false, false)
+}
+
+func (ctxt *Link) Dconv(a *Addr) string {
+	panic("Dconv")
+}
+
+func (ctxt *Link) Rconv(reg int) string {
+	panic("Rconv")
 }
