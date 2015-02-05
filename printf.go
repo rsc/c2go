@@ -14,10 +14,12 @@ import (
 )
 
 func tryPrintf(curfn *cc.Decl, x *cc.Expr, name string, fmtpos int, newName string) bool {
-	if (x.Left.Text == name || (strings.Contains(name, ".") || strings.Contains(name, "->")) && x.Left.String() == name) && len(x.List) >= fmtpos+1 && x.List[fmtpos].Op == cc.String && len(x.List[fmtpos].Texts) == 1 {
-		fixPrintFormat(curfn, x.List[fmtpos], x.List[fmtpos+1:])
-		x.Left.Text = newName
-		x.Left.XDecl = nil
+	if (x.Left.Text == name || (strings.Contains(name, ".") || strings.Contains(name, "->")) && x.Left.String() == name) && len(x.List) >= fmtpos+1 && x.List[fmtpos].Op == cc.String {
+		x.List = append(x.List[:fmtpos+1], fixPrintFormat(curfn, x.List[fmtpos], x.List[fmtpos+1:])...)
+		if newName != "" {
+			x.Left.Text = newName
+			x.Left.XDecl = nil
+		}
 		return true
 	}
 	return false
@@ -66,19 +68,23 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 		}
 		return true
 	}
+	if tryPrintf(curfn, x, "smprint", 0, "fmt.Sprintf") {
+		x.XType = stringType
+		return true
+	}
 	if tryPrintf(curfn, x, "print", 0, "fmt.Printf") {
 		return true
 	}
 	if tryPrintf(curfn, x, "sysfatal", 0, "log.Fatalf") {
 		return true
 	}
-	if tryPrintf(curfn, x, "ctxt->diag", 0, "Diag") {
+	if tryPrintf(curfn, x, "fatal", 0, "") {
+		return true
+	}
+	if tryPrintf(curfn, x, "ctxt->diag", 0, "") {
 		return true
 	}
 	if tryPrintf(curfn, x, "Bprint", 1, "fmt.Fprintf") {
-		return true
-	}
-	if tryPrintf(curfn, x, "smprint", 0, "fmt.Sprintf") {
 		return true
 	}
 
@@ -108,7 +114,7 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	return false
 }
 
-func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
+func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 	for _, arg := range args {
 		fixGoTypesExpr(curfn, arg, nil)
 		cc.Preorder(arg, func(x cc.Syntax) {
@@ -119,275 +125,286 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) {
 		})
 	}
 
-	format, err := strconv.Unquote(fx.Texts[0])
-	if err != nil {
-		fprintf(fx.Span, "cannot parse quoted string: %v", err)
-		return
-	}
-
-	suffix := ""
-
-	var buf bytes.Buffer
-	start := 0
 	narg := 0
-	for i := 0; i < len(format); i++ {
-		if format[i] != '%' {
-			continue
+	for j, text := range fx.Texts {
+		format, err := strconv.Unquote(text)
+		if err != nil {
+			fprintf(fx.Span, "cannot parse quoted string: %v", err)
+			return args
 		}
-		buf.WriteString(format[start:i])
-		start = i
-		i++
-		for i < len(format) {
-			c := format[i]
-			switch c {
-			case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '#', '-', '.', ',', ' ', 'h', 'l', 'u', '*':
-				i++
+
+		suffix := ""
+
+		var buf bytes.Buffer
+		start := 0
+		for i := 0; i < len(format); i++ {
+			if format[i] != '%' {
 				continue
 			}
-			break
-		}
-		if i >= len(format) {
-			fprintf(fx.Span, "print format ends mid-verb")
-			return
-		}
-		flags, verb := format[start:i], format[i]
-		start = i + 1
-
-		allFlags := flags
-		_ = allFlags
-
-		flags = strings.Replace(flags, "h", "", -1)
-		flags = strings.Replace(flags, "l", "", -1)
-		flags = strings.Replace(flags, "u", "", -1)
-
-		if j := strings.Index(flags, "#0"); j >= 0 && verb == 'x' {
-			k := j + 2
-			for k < len(flags) && '0' <= flags[k] && flags[k] <= '9' {
-				k++
+			buf.WriteString(format[start:i])
+			start = i
+			i++
+			if i < len(format) && format[i] == '%' {
+				buf.WriteByte('%')
+				start = i + 1
+				continue
 			}
-			n, _ := strconv.Atoi(flags[j+2 : k])
-			flags = flags[:j+2] + fmt.Sprint(n-2) + flags[k:]
-		}
-
-		narg += strings.Count(allFlags, "*")
-
-		convert := ""
-		switch verb {
-		default:
-			fprintf(fx.Span, "unrecognized format %s%c", flags, verb)
-			buf.WriteString("%")
-			buf.WriteString(flags)
-			buf.WriteString(string(verb))
-
-		case 'f', 'e', 'E', 'g', 'G', 's', 'c', 'p':
-			// usual meanings
-			buf.WriteString(flags)
-			buf.WriteString(string(verb))
-
-		case 'x', 'X', 'o', 'd', 'b':
-			// usual meanings, but force unsigned if u is given
-			buf.WriteString(flags)
-			buf.WriteString(string(verb))
-			if narg >= len(args) || !strings.Contains(allFlags, "u") {
-				break
-			}
-			arg := args[narg]
-			if t := arg.XType.Def(); t != nil {
-				switch t.Kind {
-				case Int8:
-					convert = "uint8"
-				case Int16:
-					convert = "uint16"
-				case Int32:
-					convert = "uint32"
-				case Int64:
-					convert = "uint64"
-				case Int:
-					convert = "uint"
+			for i < len(format) {
+				c := format[i]
+				switch c {
+				case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '#', '-', '.', ',', ' ', 'h', 'l', 'u', '*':
+					i++
+					continue
 				}
-			}
-
-		case 'q': // plan 9 rc(1) quoted string
-			buf.WriteString(flags)
-			buf.WriteString("%v")
-			convert = "plan9quote"
-
-		case 'A': // asm opcode
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			if narg < len(args) {
-				forceConvert(nil, args[narg], args[narg].XType, intType)
-			}
-			convert = "Aconv" + suffix
-
-		case 'L':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			if narg >= len(args) {
 				break
 			}
-			arg := args[narg]
-			if (arg.Op == cc.Dot || arg.Op == cc.Arrow) && arg.Text == "lineno" {
-				arg.Text = "Line"
-				arg.XDecl = nil
-				args[narg] = &cc.Expr{Op: cc.Call, Left: arg, XType: stringType}
-				break
+			if i >= len(format) {
+				fprintf(fx.Span, "print format ends mid-verb")
+				return args
 			}
-			convert = "ctxt.Line"
+			flags, verb := format[start:i], format[i]
+			start = i + 1
 
-		case '@':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			convert = "RAconv" + suffix
+			allFlags := flags
+			_ = allFlags
 
-		case '^':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			convert = "DRconv" + suffix
+			flags = strings.Replace(flags, "h", "", -1)
+			flags = strings.Replace(flags, "l", "", -1)
+			flags = strings.Replace(flags, "u", "", -1)
 
-		case 'D':
-			if allFlags != "%" && allFlags != "%l" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			if narg >= len(args) {
-				break
-			}
-			flag := &cc.Expr{Op: cc.Name, Text: "0"}
-			if strings.Contains(allFlags, "l") {
-				flag.Text = "fmtLong"
-			}
-			arg := args[narg]
-			args[narg] = &cc.Expr{
-				Op:   cc.Call,
-				Left: &cc.Expr{Op: cc.Name, Text: "Dconv" + suffix},
-				List: []*cc.Expr{
-					&cc.Expr{Op: cc.Name, Text: "p"},
-					flag,
-					arg,
-				},
-				XType: stringType,
+			if j := strings.Index(flags, "#0"); j >= 0 && verb == 'x' {
+				k := j + 2
+				for k < len(flags) && '0' <= flags[k] && flags[k] <= '9' {
+					k++
+				}
+				n, _ := strconv.Atoi(flags[j+2 : k])
+				flags = flags[:j+2] + fmt.Sprint(n-2) + flags[k:]
 			}
 
-		case 'M':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			convert = "Mconv" + suffix
+			narg += strings.Count(allFlags, "*")
 
-		case 'R':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			convert = "Rconv" + suffix
-
-		case '$':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%q")
-
-		case 'P':
-			if allFlags != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-
-		case 'r': // plan 9 errstr
-			buf.WriteString("%v")
-			if narg > len(args) {
-				break
-			}
-			args = append(append(args[:narg:narg], &cc.Expr{Op: cc.Name, Text: "err"}), args[narg:]...)
-
-		case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+			convert := ""
 			switch verb {
-			case 'O':
-				convert = "int"
-			}
-			f := allFlags
-			mod := "0"
-			if strings.Contains(f, "-") {
-				mod += "|fmtMinus"
-				f = strings.Replace(f, "-", "", 1)
-			}
-			if strings.Contains(f, "h") {
-				mod += "|fmtShort"
-				f = strings.Replace(f, "h", "", 1)
+			default:
+				fprintf(fx.Span, "unrecognized format %s%c", flags, verb)
+				buf.WriteString("%")
+				buf.WriteString(flags)
+				buf.WriteString(string(verb))
+
+			case 'f', 'e', 'E', 'g', 'G', 's', 'c', 'p':
+				// usual meanings
+				buf.WriteString(flags)
+				buf.WriteString(string(verb))
+
+			case 'x', 'X', 'o', 'd', 'b':
+				// usual meanings, but force unsigned if u is given
+				buf.WriteString(flags)
+				buf.WriteString(string(verb))
+				if narg >= len(args) || !strings.Contains(allFlags, "u") {
+					break
+				}
+				arg := args[narg]
+				if t := arg.XType.Def(); t != nil {
+					switch t.Kind {
+					case Int8:
+						convert = "uint8"
+					case Int16:
+						convert = "uint16"
+					case Int32:
+						convert = "uint32"
+					case Int64:
+						convert = "uint64"
+					case Int:
+						convert = "uint"
+					}
+				}
+
+			case 'q': // plan 9 rc(1) quoted string
+				buf.WriteString(flags)
+				buf.WriteString("%v")
+				convert = "plan9quote"
+
+			case 'A': // asm opcode
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				if narg < len(args) {
+					forceConvert(nil, args[narg], args[narg].XType, intType)
+				}
+				convert = "Aconv" + suffix
+
+			case 'L':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				if narg >= len(args) {
+					break
+				}
+				arg := args[narg]
+				if (arg.Op == cc.Dot || arg.Op == cc.Arrow) && arg.Text == "lineno" {
+					arg.Text = "Line"
+					arg.XDecl = nil
+					args[narg] = &cc.Expr{Op: cc.Call, Left: arg, XType: stringType}
+					break
+				}
+				convert = "ctxt.Line"
+				if strings.Contains(fx.Span.Start.File, "cmd/gc") {
+					convert = "Ctxt.Line"
+					forceConvert(curfn, arg, arg.XType, intType)
+				}
+
+			case '@':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				convert = "RAconv" + suffix
+
+			case '^':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				convert = "DRconv" + suffix
+
+			case 'D':
+				if allFlags != "%" && allFlags != "%l" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				if narg >= len(args) {
+					break
+				}
+				flag := &cc.Expr{Op: cc.Name, Text: "0"}
+				if strings.Contains(allFlags, "l") {
+					flag.Text = "fmtLong"
+				}
+				arg := args[narg]
+				args[narg] = &cc.Expr{
+					Op:   cc.Call,
+					Left: &cc.Expr{Op: cc.Name, Text: "Dconv" + suffix},
+					List: []*cc.Expr{
+						&cc.Expr{Op: cc.Name, Text: "p"},
+						flag,
+						arg,
+					},
+					XType: stringType,
+				}
+
+			case 'M':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				convert = "Mconv" + suffix
+
+			case 'R':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				forceConvert(curfn, args[narg], args[narg].XType, intType)
+				convert = "Rconv" + suffix
+
+			case '$':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%q")
+
+			case 'P':
+				if allFlags != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+
+			case 'r': // plan 9 errstr
+				buf.WriteString("%v")
+				if narg > len(args) {
+					break
+				}
+				args = append(append(args[:narg:narg], &cc.Expr{Op: cc.Name, Text: "err"}), args[narg:]...)
+
+			case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+				switch verb {
+				case 'O':
+					convert = "int"
+				}
+				f := allFlags
+				mod := "0"
+				if strings.Contains(f, "-") {
+					mod += "|fmtMinus"
+					f = strings.Replace(f, "-", "", 1)
+				}
 				if strings.Contains(f, "h") {
-					mod += "|fmtByte"
+					mod += "|fmtShort"
 					f = strings.Replace(f, "h", "", 1)
+					if strings.Contains(f, "h") {
+						mod += "|fmtByte"
+						f = strings.Replace(f, "h", "", 1)
+					}
+				}
+				if strings.Contains(f, "#") {
+					mod += "|fmtSharp"
+					f = strings.Replace(f, "#", "", 1)
+				}
+				if strings.Contains(f, "l") {
+					mod += "|fmtLong"
+					f = strings.Replace(f, "l", "", 1)
+				}
+				if strings.Contains(f, ",") {
+					mod += "|fmtComma"
+					f = strings.Replace(f, ",", "", 1)
+				}
+				if strings.Contains(f, "+") {
+					mod += "|fmtPlus"
+					f = strings.Replace(f, "+", "", 1)
+				}
+				if strings.Contains(f, "u") {
+					mod += "|fmtUnsigned"
+					f = strings.Replace(f, "u", "", 1)
+				}
+				if f != "%" {
+					fprintf(fx.Span, "format %s%c", allFlags, verb)
+				}
+				buf.WriteString("%v")
+				if narg >= len(args) {
+					break
+				}
+				if mod != "0" {
+					mod = mod[2:]
+				}
+				flag := &cc.Expr{Op: cc.Name, Text: mod}
+				if convert != "" {
+					args[narg] = &cc.Expr{Op: cc.Call, Left: &cc.Expr{Op: cc.Name, Text: convert}, List: []*cc.Expr{args[narg]}, XType: stringType}
+					convert = ""
+				}
+				arg := args[narg]
+				args[narg] = &cc.Expr{
+					Op:   cc.Call,
+					Left: &cc.Expr{Op: cc.Name, Text: string(verb) + "conv"},
+					List: []*cc.Expr{
+						arg,
+						flag,
+					},
+					XType: stringType,
 				}
 			}
-			if strings.Contains(f, "#") {
-				mod += "|fmtSharp"
-				f = strings.Replace(f, "#", "", 1)
-			}
-			if strings.Contains(f, "l") {
-				mod += "|fmtLong"
-				f = strings.Replace(f, "l", "", 1)
-			}
-			if strings.Contains(f, ",") {
-				mod += "|fmtComma"
-				f = strings.Replace(f, ",", "", 1)
-			}
-			if strings.Contains(f, "+") {
-				mod += "|fmtPlus"
-				f = strings.Replace(f, "+", "", 1)
-			}
-			if strings.Contains(f, "u") {
-				mod += "|fmtUnsigned"
-				f = strings.Replace(f, "u", "", 1)
-			}
-			if f != "%" {
-				fprintf(fx.Span, "format %s%c", allFlags, verb)
-			}
-			buf.WriteString("%v")
-			if narg >= len(args) {
-				break
-			}
-			if mod != "0" {
-				mod = mod[2:]
-			}
-			flag := &cc.Expr{Op: cc.Name, Text: mod}
-			if convert != "" {
-				args[narg] = &cc.Expr{Op: cc.Call, Left: &cc.Expr{Op: cc.Name, Text: convert}, List: []*cc.Expr{args[narg]}, XType: stringType}
-				convert = ""
-			}
-			arg := args[narg]
-			args[narg] = &cc.Expr{
-				Op:   cc.Call,
-				Left: &cc.Expr{Op: cc.Name, Text: string(verb) + "conv"},
-				List: []*cc.Expr{
-					arg,
-					flag,
-				},
-				XType: stringType,
-			}
-		}
 
-		if convert != "" && narg < len(args) {
-			arg := args[narg]
-			args[narg] = &cc.Expr{Op: cc.Call, Left: &cc.Expr{Op: cc.Name, Text: convert}, List: []*cc.Expr{arg}, XType: stringType}
-		}
+			if convert != "" && narg < len(args) {
+				arg := args[narg]
+				args[narg] = &cc.Expr{Op: cc.Call, Left: &cc.Expr{Op: cc.Name, Text: convert}, List: []*cc.Expr{arg}, XType: stringType}
+			}
 
-		if verb != 'r' {
 			narg++
 		}
+		buf.WriteString(format[start:])
+		fx.Texts[j] = strconv.Quote(buf.String())
 	}
-	buf.WriteString(format[start:])
 
-	fx.Texts[0] = strconv.Quote(buf.String())
+	return args
 }
 
 func fixFormatter(fn *cc.Decl) {

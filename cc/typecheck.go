@@ -767,6 +767,7 @@ func (lx *lexer) typecheckExpr(x *Expr) {
 	case Call:
 		t := x.Left.XType
 		if t == nil {
+			lx.Errorf("no info for call of %v", x.Left)
 			break
 		}
 		if isPtr(t) {

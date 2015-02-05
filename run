@@ -11,7 +11,7 @@ dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
 trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj && cd $dst/src/cmd/gc && git checkout HEAD mkbuiltin1.c y.tab.c" 0
 rm -rf $dst/src/cmd/internal/obj
-c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
+c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c # $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
@@ -21,19 +21,19 @@ for i in add/obj/*/*.go; do
 	base=$(echo $i | sed 's;add/obj/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/obj/$base
 done
-for i in add/gc/*.go; do
-	base=$(echo $i | sed 's;.*/;;')
-	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
-done
-rm $dst/src/cmd/internal/gc/lex.go # temporary, too broken
+#for i in add/gc/*.go; do
+#	base=$(echo $i | sed 's;.*/;;')
+#	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
+#done
+#rm $dst/src/cmd/internal/gc/lex.go # temporary, too broken
 rm $dst/src/cmd/internal/obj/bio.go
 gofmt -w $dst/src/cmd/internal/obj # check for syntax errors, mainly
 rm -rf /tmp/c2gomain
 mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
 goimports -w $dst/src/cmd/new* $dst/src/cmd/internal
-wc $(find $dst/src/cmd/internal/obj -type f)
-go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a cmd/internal/gc cmd/new6g 
+wc $(find $dst/src/cmd/{internal/obj,internal/gc,new6g} -type f)
+go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a # cmd/internal/gc cmd/new6g 
 
 exit 0
 

@@ -121,6 +121,7 @@ var (
 	uint64Type = &cc.Type{Kind: Uint64}
 	idealType  = &cc.Type{Kind: Ideal}
 	stringType = &cc.Type{Kind: String}
+	runeType   = &cc.Type{Kind: Rune}
 )
 
 var c2goKind = map[cc.TypeKind]cc.TypeKind{
@@ -420,6 +421,7 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 			x.Op = cc.NotEq
 			x.Left = old
 			x.Right = zeroFor(left)
+			fixSpecialCompare(fn, x)
 			return targ
 		}
 	}
@@ -576,6 +578,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 			return x.XType
 		}
 		left := fixGoTypesExpr(fn, x.Left, nil)
+		if left != nil && left.Kind == cc.Ptr && left.Base.Kind == cc.Func {
+			left = left.Base
+		}
 		for i, y := range x.List {
 			if left != nil && left.Kind == cc.Func && i < len(left.Decls) {
 				forceGoType(fn, y, left.Decls[i].Type)
@@ -585,9 +590,6 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 		}
 		if left != nil && left.Kind == cc.Func {
 			return left.Base
-		}
-		if left != nil && left.Kind == cc.Ptr && left.Base.Kind == cc.Func {
-			return left.Base.Base
 		}
 		return nil
 
@@ -843,6 +845,11 @@ func forceConvert(fn *cc.Decl, x *cc.Expr, actual, targ *cc.Type) {
 	}
 
 	if !sameType(actual, targ) {
+		if x.Op == cc.Twid {
+			forceConvert(fn, x.Left, actual, targ)
+			x.XType = targ
+			return
+		}
 		old := copyExpr(x)
 		// for debugging:
 		// old = &cc.Expr{Op: cc.Cast, Left: old, Type: actual, XType: actual}
@@ -1087,6 +1094,24 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.XType = intType
 		return true
 
+	case "strcmp":
+		if len(x.List) != 2 {
+			fprintf(x.Span, "unsupported %v - too many args", x)
+			return false
+		}
+		fixGoTypesExpr(fn, x.List[0], stringType)
+		fixGoTypesExpr(fn, x.List[1], stringType)
+		x.Left.Text = "strings.Compare"
+		x.Left.XDecl = nil
+		x.XType = intType
+		return true
+
+	case "abort":
+		x.Left.Text = "panic"
+		x.Left.XDecl = nil
+		x.List = []*cc.Expr{{Op: cc.Name, Text: `"abort"`}}
+		return true
+
 	case "TUP", "CASE":
 		if len(x.List) != 2 {
 			fprintf(x.Span, "unsupported %v - too many args", x)
@@ -1217,7 +1242,7 @@ func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 }
 
 func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
-	if (x.Right.Op != cc.Number || x.Right.Text != "0") && x.Right.String() != "nil" || x.Left.Op != cc.Call || x.Left.Left.Op != cc.Name {
+	if (x.Right.Op != cc.Number || x.Right.Text != "0") && x.Right.String() != "nil" && x.Right.String() != `""` || x.Left.Op != cc.Call || x.Left.Left.Op != cc.Name {
 		return false
 	}
 
@@ -1279,6 +1304,38 @@ func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
 		x.XType = boolType
 		return true
 
+	case "utfrune":
+		if len(call.List) != 2 {
+			fprintf(x.Span, "unsupported %v", x)
+			return false
+		}
+		call.Left = &cc.Expr{Op: cc.Name, Text: "strings.ContainsRune"}
+		call.XType = boolType
+		if x.Op == cc.NotEq {
+			*x = *call
+		} else if x.Op == cc.EqEq {
+			x.Op = cc.Not
+			x.Right = nil
+		}
+		x.XType = boolType
+		return true
+
+	case "ucistrcmp":
+		if len(call.List) != 2 {
+			fprintf(x.Span, "unsupported %v", x)
+			return false
+		}
+		call.Left = &cc.Expr{Op: cc.Name, Text: "strings.EqualFold"}
+		call.XType = boolType
+		if x.Op == cc.EqEq {
+			*x = *call
+		} else if x.Op == cc.NotEq {
+			x.Op = cc.Not
+			x.Right = nil
+		}
+		x.XType = boolType
+		return true
+
 	case "strcmp":
 		if len(call.List) != 2 {
 			fprintf(x.Span, "unsupported %v", x)
@@ -1290,6 +1347,23 @@ func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
 		x.Left = obj1
 		x.Right = obj2
 		x.List = nil
+		x.XType = boolType
+		return true
+
+	case "isspacerune":
+		if len(call.List) != 1 {
+			fprintf(x.Span, "unsupported %v", x)
+			return false
+		}
+		call.Left.Text = "unicode.IsSpace"
+		call.Left.XDecl = nil
+		forceConvert(fn, call.List[0], call.List[0].XType, runeType)
+		if x.Op == cc.NotEq {
+			*x = *call
+		} else if x.Op == cc.EqEq {
+			x.Op = cc.Not
+			x.Right = nil
+		}
 		x.XType = boolType
 		return true
 	}
@@ -1509,7 +1583,7 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 				x.List = out
 			}
 
-			if (x.Op == cc.Arrow || x.Op == cc.Dot) && x.XDecl != nil {
+			if (x.Op == cc.Arrow || x.Op == cc.Dot || x.Op == cc.Name) && x.XDecl != nil {
 				k := declKey(x.XDecl)
 				name := cfg.len[k]
 				op := "len"
@@ -1520,41 +1594,54 @@ func rewriteLen(cfg *Config, prog *cc.Prog) {
 						return
 					}
 				}
-				d := x.XDecl
-				if d.OuterType == nil {
-					fmt.Fprintf(os.Stderr, "found use of %s but missing type\n", k)
-					return
-				}
-				t := d.OuterType
-				var other *cc.Decl
-				if i := strings.Index(name, "."); i >= 0 {
-					name = name[i+1:]
-				}
-				for _, dd := range t.Decls {
-					if dd.Name == name {
-						other = dd
-						break
+				var lenExpr *cc.Expr
+				if x.Op == cc.Name {
+					i := strings.Index(name, ".")
+					if i >= 0 {
+						name = name[i+1:]
+					}
+					if goKeyword[name] {
+						name += "_"
+					} else if cfg.rename[name] != "" {
+						name = cfg.rename[name]
+					}
+					lenExpr = &cc.Expr{Op: cc.Name, Text: name}
+				} else {
+					d := x.XDecl
+					if d.OuterType == nil {
+						fmt.Fprintf(os.Stderr, "found use of %s but missing type\n", k)
+						return
+					}
+					t := d.OuterType
+					var other *cc.Decl
+					if i := strings.Index(name, "."); i >= 0 {
+						name = name[i+1:]
+					}
+					for _, dd := range t.Decls {
+						if dd.Name == name {
+							other = dd
+							break
+						}
+					}
+					if other == nil {
+						fmt.Fprintf(os.Stderr, "found use of %s but cannot find field %s\n", k, name)
+						return
+					}
+					left := x.Left
+					lenExpr = &cc.Expr{
+						Op:    cc.Dot,
+						Left:  left,
+						Text:  name,
+						XDecl: other,
 					}
 				}
-				if other == nil {
-					fmt.Fprintf(os.Stderr, "found use of %s but cannot find field %s\n", k, name)
-					return
-				}
-				left := x.Left
 				x.Op = cc.Call
 				x.Left = &cc.Expr{
 					Op:    cc.Name,
 					Text:  op,
 					XType: &cc.Type{Kind: cc.Func, Base: intType},
 				}
-				x.List = []*cc.Expr{
-					{
-						Op:    cc.Dot,
-						Left:  left,
-						Text:  name,
-						XDecl: other,
-					},
-				}
+				x.List = []*cc.Expr{lenExpr}
 			}
 		}
 	})
