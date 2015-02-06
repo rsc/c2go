@@ -46,10 +46,14 @@ func isdigit(c int) bool {
 	return '0' <= c && c <= '9'
 }
 
-func yyparse() int {
-	panic("yyparse")
-}
-
 func plan9quote(s string) string {
 	return "'" + strings.Replace(s, "'", "''", -1) + "'"
+}
+
+// simulation of int(*s++) in C
+func intstarstringplusplus(s string) (int, string) {
+	if s == "" {
+		return 0, ""
+	}
+	return int(s[0]), s[1:]
 }

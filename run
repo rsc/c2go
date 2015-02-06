@@ -10,7 +10,7 @@ rm -f $GOROOT/src/cmd/gc/mkbuiltin1.c $GOROOT/src/cmd/gc/y.tab.c # implement 'bu
 dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
 trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj && cd $dst/src/cmd/gc && git checkout HEAD mkbuiltin1.c y.tab.c" 0
-rm -rf $dst/src/cmd/internal/obj
+rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc $dst/src/cmd/new?g
 c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
@@ -21,7 +21,7 @@ for i in add/obj/*/*.go; do
 	base=$(echo $i | sed 's;add/obj/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/obj/$base
 done
-for i in add/gc/*.go; do
+for i in add/gc/*.*; do
 	base=$(echo $i | sed 's;.*/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
 done
@@ -29,15 +29,20 @@ for i in add/new?g/*.go; do
 	base=$(echo $i | sed 's;add/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/$base
 done
-# rm $dst/src/cmd/internal/gc/{lex,reg,popt}.go # temporary, too broken
+rm $dst/src/cmd/internal/gc/{yerr.go,y.tab.go}
+(cd $dst/src/cmd/internal/gc && go tool yacc go.y)
 rm $dst/src/cmd/internal/obj/bio.go
 gofmt -w $dst/src/cmd/internal/obj # check for syntax errors, mainly
 rm -rf /tmp/c2gomain
 mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
 goimports -w $dst/src/cmd/new* $dst/src/cmd/internal
-wc $(find $dst/src/cmd/{internal/obj,internal/gc,new6g} -type f)
+wc $(find $dst/src/cmd/{internal/obj,internal/gc,new6g} -type f -a -name '*.go')
 go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a cmd/internal/gc cmd/new6g 
+
+new6g -g -R -v -S ~/g/go/test/helloworld.go
+go tool 6l helloworld.6
+./6.out
 
 exit 0
 
@@ -54,3 +59,7 @@ do
 	GOOS=$os GOARCH=$arch go tool dist install runtime
 	GOOBJ=2 GOOS=$os GOARCH=$arch go build -a std
 done
+
+# Edit ,s/(if\(.*\))\n(.*;)\n(	*)else\n(.*;)/\1 {\n\2\n\3} else {\n\4\n\3}/g
+# Edit ,s/(	*)(if\(.*\))\n(.*;)\n/\1\2 {\n\3\n\1}\n/g
+# Edit ,s/'\\0'/'\\x00'/g

@@ -172,6 +172,8 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 		if d, ok := x.(*cc.Decl); ok {
 			if cfg.bool[declKey(d)] {
 				t.Kind = Bool
+			} else if strings.HasPrefix(d.Name, "no") {
+				println("not bool", d.Name, declKey(d))
 			}
 		}
 		return t
@@ -187,10 +189,20 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 		// Otherwise fall back to base.
 		def := typ.Base
 		if cc.Char <= def.Kind && def.Kind <= cc.Enum {
+			var t *cc.Type
 			if c2goName[typ.Name] != 0 {
-				return &cc.Type{Kind: c2goName[typ.Name]}
+				t = &cc.Type{Kind: c2goName[typ.Name]}
+			} else {
+				t = &cc.Type{Kind: c2goKind[typ.Base.Kind]}
 			}
-			return &cc.Type{Kind: c2goKind[typ.Base.Kind]}
+			if d, ok := x.(*cc.Decl); ok {
+				if cfg.bool[declKey(d)] {
+					t.Kind = Bool
+				} else if strings.HasPrefix(d.Name, "no") {
+					println("not bool", d.Name, declKey(d))
+				}
+			}
+			return t
 		}
 
 		if typ.Name == "va_list" {
@@ -676,7 +688,7 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 		if x.Text == "nelem" {
 		}
 		switch x.Text {
-		case "T", "S", "N", "L", "P":
+		case "T", "S", "N", "L", "P", "C":
 			x.Text = "nil"
 			x.XDecl = nil
 			return nil
@@ -1051,6 +1063,17 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 			x.Left.XDecl = nil
 			x.List = []*cc.Expr{&cc.Expr{Op: ExprType, Type: typ}}
 			x.XType = &cc.Type{Kind: cc.Ptr, Base: typ}
+			if typ.String() == "Prog" {
+				isGC := strings.Contains(x.Span.Start.File, "cmd/gc")
+				isCompiler := isGC || strings.Contains(x.Span.Start.File, "cmd/6g") || strings.Contains(x.Span.Start.File, "cmd/8g") ||  strings.Contains(x.Span.Start.File, "cmd/5g") ||  strings.Contains(x.Span.Start.File, "cmd/9g")
+				if isCompiler {
+					x.List = nil
+					x.Left.Text = "Ctxt.NewProg"
+					if !isGC {
+						x.Left.Text = "gc." + x.Left.Text
+					}
+				}
+			}
 		} else {
 			x.Left.Text = "make"
 			x.Left.XDecl = nil

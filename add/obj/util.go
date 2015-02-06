@@ -169,7 +169,10 @@ func Bflush(b *Biobuf) error {
 }
 
 func Bterm(b *Biobuf) error {
-	err := b.w.Flush()
+	var err error
+	if b.w != nil {
+		err = b.w.Flush()
+	}
 	err1 := b.f.Close()
 	if err == nil {
 		err = err1
@@ -240,7 +243,7 @@ func (ctxt *Link) Dconv(a *Addr) string {
 }
 
 func (ctxt *Link) Rconv(reg int) string {
-	panic("Rconv")
+	return ctxt.Arch.Rconv(reg)
 }
 
 func Getcallerpc(interface{}) uintptr {
