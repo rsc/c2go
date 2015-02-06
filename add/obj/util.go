@@ -242,3 +242,7 @@ func (ctxt *Link) Dconv(a *Addr) string {
 func (ctxt *Link) Rconv(reg int) string {
 	panic("Rconv")
 }
+
+func Getcallerpc(interface{}) uintptr {
+	return 1
+}

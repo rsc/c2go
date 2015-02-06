@@ -127,6 +127,9 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 			}
 		})
 	}
+	
+	isGC := strings.Contains(fx.Span.Start.File, "cmd/gc")
+	isCompiler := isGC || strings.Contains(fx.Span.Start.File, "cmd/6g") || strings.Contains(fx.Span.Start.File, "cmd/8g") ||  strings.Contains(fx.Span.Start.File, "cmd/5g") ||  strings.Contains(fx.Span.Start.File, "cmd/9g")
 
 	narg := 0
 	for j, text := range fx.Texts {
@@ -253,8 +256,12 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 					break
 				}
 				convert = "ctxt.Line"
-				if strings.Contains(fx.Span.Start.File, "cmd/gc") {
-					convert = "Ctxt.Line"
+				if isCompiler {
+					if isGC {
+						convert = "Ctxt.Line"
+					} else {
+						convert = "gc.Ctxt.Line"
+					}
 					forceConvert(curfn, arg, arg.XType, intType)
 				}
 
@@ -295,6 +302,13 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 					},
 					XType: stringType,
 				}
+				if isCompiler {
+					args[narg].List = args[narg].List[2:]
+					args[narg].Left.Text = "Ctxt.Dconv"
+					if !isGC {
+						args[narg].Left.Text = "gc.Ctxt.Dconv"
+					}
+				}
 
 			case 'M':
 				if allFlags != "%" {
@@ -310,6 +324,12 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 				buf.WriteString("%v")
 				forceConvert(curfn, args[narg], args[narg].XType, intType)
 				convert = "Rconv" + suffix
+				if isCompiler {
+					convert = "Ctxt." + convert
+					if !isGC {
+						convert = "gc." + convert
+					}
+				}
 
 			case '$':
 				if allFlags != "%" {
@@ -393,6 +413,9 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 						flag,
 					},
 					XType: stringType,
+				}
+				if !isGC {
+					args[narg].Left.Text = "gc." + args[narg].Left.Text
 				}
 			}
 

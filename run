@@ -25,6 +25,10 @@ for i in add/gc/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
 done
+for i in add/new?g/*.go; do
+	base=$(echo $i | sed 's;add/;;')
+	cat $i | grep -v 'build ignore' >$dst/src/cmd/$base
+done
 # rm $dst/src/cmd/internal/gc/{lex,reg,popt}.go # temporary, too broken
 rm $dst/src/cmd/internal/obj/bio.go
 gofmt -w $dst/src/cmd/internal/obj # check for syntax errors, mainly
