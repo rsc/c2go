@@ -340,6 +340,9 @@ func fallsThrough(x *cc.Stmt) bool {
 		if x.Expr.Op == cc.Call && x.Expr.Left.Op == cc.Name && x.Expr.Left.Text == "sysfatal" {
 			return false
 		}
+		if x.Expr.Op == cc.Name && x.Expr.Text == "fallthrough" {
+			return false
+		}
 	}
 	return true
 }

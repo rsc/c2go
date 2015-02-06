@@ -84,6 +84,9 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	if tryPrintf(curfn, x, "ctxt->diag", 0, "") {
 		return true
 	}
+	if tryPrintf(curfn, x, "yyerror", 0, "") {
+		return true
+	}
 	if tryPrintf(curfn, x, "Bprint", 1, "fmt.Fprintf") {
 		return true
 	}

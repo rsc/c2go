@@ -30,6 +30,8 @@ var goKeyword = map[string]bool{
 
 	// not keywords but still need renaming
 	"fmt": true,
+	"path": true,
+	"rune": true,
 }
 
 // renameDecls renames file-local declarations to make them

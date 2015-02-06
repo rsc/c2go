@@ -30,15 +30,25 @@ type Biobuf struct {
 	f         *os.File
 	r         *bufio.Reader
 	w         *bufio.Writer
+	linelen int
 }
 
 func Bopenw(name string) (*Biobuf, error) {
-	f, err := os.Open(name)
+	f, err := os.Create(name)
 	if err != nil {
 		return nil, err
 	}
 	return &Biobuf{f: f, w: bufio.NewWriter(f)}, nil
 }
+
+func Bopenr(name string) (*Biobuf, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Biobuf{f: f, r: bufio.NewReader(f)}, nil
+}
+
 
 func Binitw(w io.Writer) *Biobuf {
 	return &Biobuf{w: bufio.NewWriter(w)}
@@ -99,6 +109,57 @@ func Bgetc(b *Biobuf) int {
 	return int(c)
 }
 
+func Bgetrune(b *Biobuf) int {
+	r, _, err := b.r.ReadRune()
+	if err != nil {
+		return -1
+	}
+	return int(r)
+}
+
+func Bungetrune(b *Biobuf) {
+	b.r.UnreadRune()
+}
+
+func (b *Biobuf) Read(p []byte) (int, error) {
+	return b.r.Read(p)
+}
+
+func Brdline(b *Biobuf, delim int) string {
+	s, err := b.r.ReadBytes(byte(delim))
+	if err != nil {
+		log.Fatalf("reading input: %v", err)
+	}
+	b.linelen = len(s)
+	return string(s)
+}
+
+func Brdstr(b *Biobuf, delim int, cut int) string {
+	s, err := b.r.ReadString(byte(delim))
+	if err != nil {
+		log.Fatalf("reading input: %v", err)
+	}
+	if len(s) > 0 && cut > 0 {
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
+func Access(name string, mode int) int {
+	if mode != 0 {
+		panic("bad access")
+	}
+	_, err := os.Stat(name)
+	if err != nil {
+		return -1
+	}
+	return 0
+}
+
+func Blinelen(b *Biobuf) int {
+	return b.linelen
+}
+
 func Bungetc(b *Biobuf) {
 	b.haveUnget = true
 }
@@ -137,6 +198,11 @@ func Getgoos() string {
 
 func Getgoarm() string {
 	return envOr("GOARM", defaultGOARM)
+}
+
+func Getgo386() string {
+	//return envOr("GO386", defaultGO386)
+	panic("go386")
 }
 
 func Getgoversion() string {
