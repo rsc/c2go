@@ -239,7 +239,7 @@ func (ctxt *Link) Line(n int) string {
 }
 
 func (ctxt *Link) Dconv(a *Addr) string {
-	panic("Dconv")
+	return ctxt.Arch.Dconv(nil, 0, a)
 }
 
 func (ctxt *Link) Rconv(reg int) string {

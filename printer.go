@@ -628,6 +628,9 @@ func (p *Printer) printStmt(x *cc.Stmt) {
 	case cc.Block:
 		p.Print("{", Indent)
 		for _, b := range x.Block {
+			if b.Op == cc.StmtDecl && p.printed[b.Decl] {
+				continue
+			}
 			p.Print(Newline, b)
 		}
 		p.Print(Unindent, Newline, "}")
@@ -1003,6 +1006,12 @@ func (p *Printer) printFuncDecl(decl *cc.Decl) {
 	if decl.Body == nil {
 		// wait for definition
 		return
+	}
+	for _, s := range decl.Body.Block {
+		if s.Op == cc.StmtDecl && s.Decl.Storage&cc.Static != 0 {
+			// printing here will inhibit the print in the body
+			p.Print(s.Decl, Newline)
+		}
 	}
 	p.Print("func ", decl.Name, "(")
 	for i, arg := range decl.Type.Decls {

@@ -145,6 +145,19 @@ func renameDecls(cfg *Config, prog *cc.Prog) {
 			}
 			d.Name += "_" + file
 		}
+		
+		if d.Type.Kind == cc.Func {
+			if d.Body != nil {
+				for _, s := range d.Body.Block {
+					if s.Op == cc.StmtDecl && s.Decl.Storage&cc.Static != 0 {
+						// Add function name as prefix.
+						// Will print at top level.
+						dd := s.Decl
+						dd.Name = d.Name + "_" + dd.Name
+					}
+				}
+			}
+		}
 	}
 
 	cfg.topDecls = decls

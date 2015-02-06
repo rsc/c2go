@@ -7,17 +7,6 @@ import (
 	"strconv"
 )
 
-const (
-	fmtMinus = 1 << iota
-	fmtShort
-	fmtSharp
-	fmtByte
-	fmtLong
-	fmtComma
-	fmtPlus
-	fmtUnsigned
-)
-
 func bool2int(b bool) int {
 	if b {
 		return 1

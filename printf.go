@@ -197,7 +197,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 				buf.WriteString(flags)
 				buf.WriteString(string(verb))
 
-			case 'f', 'e', 'E', 'g', 'G', 's', 'c', 'p':
+			case 'f', 'e', 'g', 's', 'c', 'p':
 				// usual meanings
 				buf.WriteString(flags)
 				buf.WriteString(string(verb))
@@ -289,7 +289,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 				}
 				flag := &cc.Expr{Op: cc.Name, Text: "0"}
 				if strings.Contains(allFlags, "l") {
-					flag.Text = "fmtLong"
+					flag.Text = "obj.FmtLong"
 				}
 				arg := args[narg]
 				args[narg] = &cc.Expr{
@@ -350,43 +350,43 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 				}
 				args = append(append(args[:narg:narg], &cc.Expr{Op: cc.Name, Text: "err"}), args[narg:]...)
 
-			case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+			case 'B', 'E', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
 				switch verb {
-				case 'O':
+				case 'E', 'O':
 					convert = "int"
 				}
 				f := allFlags
 				mod := "0"
 				if strings.Contains(f, "-") {
-					mod += "|fmtMinus"
+					mod += "|obj.FmtLeft"
 					f = strings.Replace(f, "-", "", 1)
 				}
 				if strings.Contains(f, "h") {
-					mod += "|fmtShort"
+					mod += "|obj.FmtShort"
 					f = strings.Replace(f, "h", "", 1)
 					if strings.Contains(f, "h") {
-						mod += "|fmtByte"
+						mod += "|obj.FmtByte"
 						f = strings.Replace(f, "h", "", 1)
 					}
 				}
 				if strings.Contains(f, "#") {
-					mod += "|fmtSharp"
+					mod += "|obj.FmtSharp"
 					f = strings.Replace(f, "#", "", 1)
 				}
 				if strings.Contains(f, "l") {
-					mod += "|fmtLong"
+					mod += "|obj.FmtLong"
 					f = strings.Replace(f, "l", "", 1)
 				}
 				if strings.Contains(f, ",") {
-					mod += "|fmtComma"
+					mod += "|obj.FmtComma"
 					f = strings.Replace(f, ",", "", 1)
 				}
 				if strings.Contains(f, "+") {
-					mod += "|fmtPlus"
+					mod += "|obj.FmtSign"
 					f = strings.Replace(f, "+", "", 1)
 				}
 				if strings.Contains(f, "u") {
-					mod += "|fmtUnsigned"
+					mod += "|obj.FmtUnsigned"
 					f = strings.Replace(f, "u", "", 1)
 				}
 				if f != "%" {
@@ -398,6 +398,9 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 				}
 				if mod != "0" {
 					mod = mod[2:]
+				}
+				if !isCompiler {
+					mod = strings.Replace(mod, "obj.", "", -1)
 				}
 				flag := &cc.Expr{Op: cc.Name, Text: mod}
 				if convert != "" {
@@ -502,7 +505,7 @@ func fixFormatter(fn *cc.Decl) {
 	}
 	if len(fn.Name) == 5 && strings.HasSuffix(fn.Name, "conv") {
 		switch fn.Name[0] {
-		case 'B', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
+		case 'B', 'E', 'F', 'H', 'J', 'N', 'O', 'Q', 'S', 'T', 'V', 'Z':
 			fn.Type.Decls = append(fn.Type.Decls, &cc.Decl{
 				Name: "flag",
 				Type: intType,
@@ -527,14 +530,6 @@ func fixFormatter(fn *cc.Decl) {
 				x.Text = "flag"
 				x.XDecl = nil
 				x.Left = nil
-			}
-
-			if x.Op == cc.Name {
-				switch x.Text {
-				case "FmtLong":
-					x.Text = "fmtLong"
-					x.XDecl = nil
-				}
 			}
 		}
 	})
