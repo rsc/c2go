@@ -117,6 +117,11 @@ func (cfg *Config) read(file string) {
 				cfg.ptr[name] = true
 			}
 
+		case "string":
+			if len(f) >= 3 {
+				cfg.len[f[2]] = f[1]
+			}
+
 		case "slice":
 			if len(f) >= 2 {
 				cfg.slice[f[1]] = true

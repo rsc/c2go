@@ -611,6 +611,12 @@ func (p *Printer) printStmt(x *cc.Stmt) {
 					lab = x.Labels[i]
 					p.Print(lab.Comments.Before, lab.Expr)
 				}
+				if i+1 < len(x.Labels) && x.Labels[i+1].Op == cc.Default {
+					p.Print(":", lab.Comments.Suffix, Newline)
+					i++
+					lab = x.Labels[i]
+					p.Print("fallthrough", Newline, "default")
+				}
 			case cc.Default:
 				p.Print("default")
 			}

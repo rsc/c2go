@@ -63,12 +63,21 @@ func Bwritestring(b *Biobuf, p string) (int, error) {
 }
 
 func Bseek(b *Biobuf, offset int64, whence int) {
-	if err := b.w.Flush(); err != nil {
-		log.Fatal("writing output: %v", err)
+	if b.w != nil {
+		if err := b.w.Flush(); err != nil {
+			log.Fatal("writing output: %v", err)
+		}
+	} else if b.r != nil {
+		if whence == 1 {
+			offset -= int64(b.r.Buffered())
+		}
 	}
 	_, err := b.f.Seek(offset, whence)
 	if err != nil {
 		log.Fatal("seeking in output: %v", err)
+	}
+	if b.r != nil {
+		b.r.Reset(b.f)
 	}
 }
 

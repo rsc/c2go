@@ -195,7 +195,7 @@ import_stmt:
 			Yyerror("cannot import package as init - init must be a func");
 			break;
 		}
-		if my.Name[0] == '_' && my.Name[1] == '\x00' {
+		if my.Name == "_" {
 			break;
 		}
 		if my.Def != nil {
@@ -251,13 +251,13 @@ import_package:
 			importpkg.Name = $2.Name;
 			Pkglookup($2.Name, nil).Npkg++;
 		} else if importpkg.Name != $2.Name {
-			Yyerror("conflicting names %s and %s for package \"%Z\"", importpkg.Name, $2.Name, importpkg.Path);
+			Yyerror("conflicting names %s and %s for package \"%v\"", importpkg.Name, $2.Name, Zconv(importpkg.Path, 0));
 		}
 		importpkg.Direct = 1;
 		importpkg.Safe = curio.importsafe
 
 		if safemode != 0 && !curio.importsafe {
-			Yyerror("cannot import unsafe package \"%Z\"", importpkg.Path);
+			Yyerror("cannot import unsafe package \"%v\"", Zconv(importpkg.Path, 0));
 		}
 	}
 
@@ -1143,7 +1143,7 @@ hidden_importsym:
 	{
 		var p *Pkg
 
-		if $2.U.Sval.Len == 0 {
+		if $2.U.Sval.S == "" {
 			p = importpkg;
 		} else {
 			if isbadimport($2.U.Sval) {
@@ -1157,7 +1157,7 @@ hidden_importsym:
 	{
 		var p *Pkg
 
-		if $2.U.Sval.Len == 0 {
+		if $2.U.Sval.S == "" {
 			p = importpkg;
 		} else {
 			if isbadimport($2.U.Sval) {
@@ -1432,7 +1432,7 @@ hidden_fndcl:
 				dclcontext = PDISCARD;  // since we skip funchdr below
 				break;
 			}
-			Yyerror("inconsistent definition for func %S during import\n\t%T\n\t%T", s, s.Def.Type, t);
+			Yyerror("inconsistent definition for func %v during import\n\t%v\n\t%v", Sconv(s, 0), Tconv(s.Def.Type, 0), Tconv(t, 0));
 		}
 
 		$$ = newname(s);
@@ -1647,7 +1647,7 @@ packname:
 		var pkg *Pkg
 
 		if $1.Def == nil || $1.Def.Op != OPACK {
-			Yyerror("%S is not a package", $1);
+			Yyerror("%v is not a package", Sconv($1, 0));
 			pkg = localpkg;
 		} else {
 			$1.Def.Used = 1;
@@ -1988,7 +1988,7 @@ hidden_import:
 		importlist = list(importlist, $2);
 
 		if Debug['E'] > 0 {
-			print("import [%Z] func %lN \n", importpkg.Path, $2);
+			print("import [%v] func %lN \n", Zconv(importpkg.Path, 0), $2);
 			if Debug['m'] > 2 && $2.Inl != nil {
 				print("inl body:%+H\n", $2.Inl);
 			}
@@ -2202,7 +2202,7 @@ hidden_literal:
 	{
 		$$ = oldname(Pkglookup($1.Name, builtinpkg));
 		if $$.Op != OLITERAL {
-			Yyerror("bad constant %S", $$.Sym);
+			Yyerror("bad constant %v", Sconv($$.Sym, 0));
 		}
 	}
 

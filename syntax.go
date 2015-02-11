@@ -306,12 +306,18 @@ func rewriteSwitch(swt *cc.Stmt) {
 	for _, stmt := range swt.Body.Block {
 		// Put names after cases, so that they go to the same place.
 		var names, cases []*cc.Label
+		var def *cc.Label
 		for _, lab := range stmt.Labels {
 			if lab.Op == cc.LabelName {
 				names = append(names, lab)
+			} else if lab.Op == cc.Default {
+				def = lab
 			} else {
 				cases = append(cases, lab)
 			}
+		}
+		if def != nil {
+			cases = append(cases, def) // put default last for printing
 		}
 		if len(cases) > 0 && len(names) > 0 {
 			stmt.Labels = append(cases, names...)

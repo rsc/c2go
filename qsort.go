@@ -215,22 +215,24 @@ func fixQsortCmp(decl *cc.Decl) *cc.Type {
 				// Otherwise rewrite ret to ret < 0.
 				switch ret.Op {
 				case cc.Minus, cc.Plus:
-					if ret.Left.Op == cc.Number {
-						ret.Op = cc.Name
+					if ret.Left.Op == cc.Number && ret.Left.Text == "1" {
 						if ret.Op == cc.Plus {
-							ret.Text = "true"
-						} else {
 							ret.Text = "false"
+						} else {
+							ret.Text = "true"
 						}
+						ret.Op = cc.Name
 						ret.Left = nil
 						ret.XType = boolType
 						return
 					}
 				case cc.Number:
-					ret.Op = cc.Name
-					ret.Text = "false"
-					ret.XType = boolType
-					return
+					if ret.Text == "0" {
+						ret.Op = cc.Name
+						ret.Text = "false"
+						ret.XType = boolType
+						return
+					}
 				}
 				x.Expr = &cc.Expr{Op: cc.Lt, Left: ret, Right: &cc.Expr{Op: cc.Number, Text: "0"}, XType: boolType}
 				return

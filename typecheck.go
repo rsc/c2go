@@ -116,6 +116,7 @@ var (
 	byteType   = &cc.Type{Kind: Byte}
 	intType    = &cc.Type{Kind: Int}
 	uintType   = &cc.Type{Kind: Uint}
+	int32Type = &cc.Type{Kind: Int32}
 	uint32Type = &cc.Type{Kind: Uint32}
 	int64Type  = &cc.Type{Kind: Int64}
 	uint64Type = &cc.Type{Kind: Uint64}
@@ -274,6 +275,13 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 				x = nil
 			}
 			typ.Base = toGoType(cfg, x, typ.Base, cache)
+		}
+		
+		// Check for array passed as parameter. Doesn't translate well.
+		for _, d := range typ.Decls {
+			if d.Type.Is(cc.Array) {
+				fprintf(d.Span, "function taking array parameter!")
+			}
 		}
 		return typ
 
@@ -1572,6 +1580,11 @@ func zeroFor(targ *cc.Type) *cc.Expr {
 		if Int8 <= k && k <= Float64 {
 			return &cc.Expr{Op: cc.Number, Text: "0"}
 		}
+		
+		if isEmptyInterface(targ) {
+			return &cc.Expr{Op: cc.Name, Text: "nil"}
+		}
+
 		return &cc.Expr{Op: cc.Number, Text: "0 /*" + targ.String() + "*/"}
 	}
 

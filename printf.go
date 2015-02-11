@@ -87,6 +87,20 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	if tryPrintf(curfn, x, "yyerror", 0, "") {
 		return true
 	}
+	if tryPrintf(curfn, x, "yyerrorl", 1, "") {
+		forceConvert(curfn, x.List[0], x.List[0].XType, intType)
+		return true
+	}
+	if tryPrintf(curfn, x, "onearg", 1, "") {
+		return true
+	}
+	if tryPrintf(curfn, x, "warn", 0, "") {
+		return true
+	}
+	if tryPrintf(curfn, x, "warnl", 1, "") {
+		forceConvert(curfn, x.List[0], x.List[0].XType, intType)
+		return true
+	}
 	if tryPrintf(curfn, x, "Bprint", 1, "fmt.Fprintf") {
 		return true
 	}
@@ -227,7 +241,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 
 			case 'q': // plan 9 rc(1) quoted string
 				buf.WriteString(flags)
-				buf.WriteString("%v")
+				buf.WriteString("v")
 				convert = "plan9quote"
 
 			case 'A': // asm opcode
