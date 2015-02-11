@@ -179,7 +179,7 @@ import_stmt:
 		importmyname = nil;
 
 		if my == nil {
-			my = lookup(ipkg.Name);
+			my = Lookup(ipkg.Name);
 		}
 
 		pack := Nod(OPACK, nil, nil);
@@ -240,7 +240,7 @@ import_here:
 	{
 		// import into my name space
 		$$ = parserline();
-		importmyname = lookup(".");
+		importmyname = Lookup(".");
 		importfile(&$2, $$);
 	}
 
@@ -1415,7 +1415,7 @@ hidden_fndcl:
 
 		importsym(s, ONAME);
 		if s.Def != nil && s.Def.Op == ONAME {
-			if eqtype(t, s.Def.Type) {
+			if Eqtype(t, s.Def.Type) {
 				dclcontext = PDISCARD;  // since we skip funchdr below
 				break;
 			}
@@ -2202,7 +2202,7 @@ hidden_constant:
 			break;
 		}
 		$4.Val.U.Cval.Real = $4.Val.U.Cval.Imag;
-		mpmovecflt(&$4.Val.U.Cval.Imag, 0.0);
+		Mpmovecflt(&$4.Val.U.Cval.Imag, 0.0);
 		$$ = nodcplxlit($2.Val, $4.Val);
 	}
 

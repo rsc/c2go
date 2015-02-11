@@ -948,7 +948,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 	switch x.Left.Text {
 	case "memmove":
 		if len(x.List) != 3 {
-			fprintf(x.Span, "unsupported %v", x)
+			// fprintf(x.Span, "unsupported %v", x)
 			return false
 		}
 		siz := x.List[2]
@@ -956,7 +956,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 			obj1, obj1Type := objIndir(fn, x.List[0])
 			obj2, obj2Type := objIndir(fn, x.List[1])
 			if obj1Type == nil || obj2Type == nil {
-				fprintf(x.Span, "unsupported %v - missing types", x)
+				// fprintf(x.Span, "unsupported %v - missing types", x)
 				return true
 			}
 			if (obj1Type.Kind == Uint32 || obj1Type.Kind == Int32) && obj2Type.Kind == Float32 {
@@ -972,13 +972,13 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 				x.XType = uint32Type
 				return true
 			}
-			fprintf(x.Span, "unsupported %v - size 4 type %v %v", x, GoString(obj1Type), GoString(obj2Type))
+			// fprintf(x.Span, "unsupported %v - size 4 type %v %v", x, GoString(obj1Type), GoString(obj2Type))
 		}
 		if siz.Op == cc.Number && siz.Text == "8" {
 			obj1, obj1Type := objIndir(fn, x.List[0])
 			obj2, obj2Type := objIndir(fn, x.List[1])
 			if obj1Type == nil || obj2Type == nil {
-				fprintf(x.Span, "unsupported %v - missing types", x)
+				// fprintf(x.Span, "unsupported %v - missing types", x)
 				return true
 			}
 			if (obj1Type.Kind == Uint64 || obj1Type.Kind == Int64) && obj2Type.Kind == Float64 {
@@ -994,14 +994,14 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 				x.XType = uint64Type
 				return true
 			}
-			fprintf(x.Span, "unsupported %v - size 8 type %v %v", x, GoString(obj1Type), GoString(obj2Type))
+			// fprintf(x.Span, "unsupported %v - size 8 type %v %v", x, GoString(obj1Type), GoString(obj2Type))
 		}
 		if siz.Op == cc.SizeofExpr {
 			obj1Type := fixGoTypesExpr(fn, x.List[0], nil)
 			obj2Type := fixGoTypesExpr(fn, x.List[1], nil)
 			sizeType := fixGoTypesExpr(fn, siz.Left, nil)
 			if obj1Type == nil || obj2Type == nil {
-				fprintf(x.Span, "unsupported %v - bad types", x)
+				// fprintf(x.Span, "unsupported %v - bad types", x)
 				return true
 			}
 			if obj2Type.Kind == cc.Array && sameType(obj2Type, sizeType) || obj2Type.Kind == Slice && GoString(x.List[1]) == GoString(siz.Left) {
@@ -1010,7 +1010,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 				x.List = x.List[:2]
 				return true
 			}
-			fprintf(x.Span, "unsupported %v - not array %v %v", x, GoString(obj2Type), GoString(sizeType))
+			// fprintf(x.Span, "unsupported %v - not array %v %v", x, GoString(obj2Type), GoString(sizeType))
 			return true
 		}
 		left := fixGoTypesExpr(fn, x.List[0], nil)
@@ -1027,7 +1027,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 			x.List = x.List[:2]
 			return true
 		}
-		fprintf(x.Span, "unsupported %v (%v %v)", x, GoString(left), GoString(right))
+		// fprintf(x.Span, "unsupported %v (%v %v)", x, GoString(left), GoString(right))
 		return true
 
 	case "mal", "malloc", "emallocz", "xmalloc":
@@ -1158,6 +1158,29 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.List = nil
 		x.XType = uint32Type
 		return true
+	
+	case "FCASE":
+		if len(x.List) != 3 {
+			fprintf(x.Span, "unsupported %v - too many args", x)
+			return false
+		}
+		arg0 := fixGoTypesExpr(fn, x.List[0], targ)
+		arg1 := fixGoTypesExpr(fn, x.List[1], targ)
+		arg2 := fixGoTypesExpr(fn, x.List[2], targ)
+		forceConvert(fn, x.List[0], arg0, uint32Type)
+		forceConvert(fn, x.List[1], arg1, uint32Type)
+		forceConvert(fn, x.List[2], arg2, uint32Type)
+		x.Op = cc.Or
+		x.Left = &cc.Expr{Op: cc.Lsh, Left: x.List[0], Right: &cc.Expr{Op: cc.Number, Text: "16"}, XType: uint32Type}
+		x.Right = &cc.Expr{
+			Op: cc.Or,
+			Left: &cc.Expr{Op: cc.Lsh, Left: x.List[1], Right: &cc.Expr{Op: cc.Number, Text: "8"}, XType: uint32Type},
+			Right: x.List[2],
+		}
+		x.List = nil
+		x.XType = uint32Type
+		return true
+
 	}
 
 	return false
@@ -1166,14 +1189,14 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 	x := stmt.Expr
 	if len(x.List) != 3 || x.List[1].Op != cc.Number || x.List[1].Text != "0" {
-		fprintf(x.Span, "unsupported %v - nonzero", x)
+		// fprintf(x.Span, "unsupported %v - nonzero", x)
 		return
 	}
 
 	if x.List[2].Op == cc.SizeofExpr || x.List[2].Op == cc.SizeofType {
 		obj, objType := objIndir(fn, x.List[0])
 		if !matchSize(fn, obj, objType, x.List[2]) {
-			fprintf(x.Span, "unsupported %v - wrong size", x)
+			// fprintf(x.Span, "unsupported %v - wrong size", x)
 			return
 		}
 
@@ -1191,7 +1214,7 @@ func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 		count = siz.Left
 		siz = siz.Right
 		if siz.Op != cc.SizeofExpr && siz.Op != cc.SizeofType {
-			fprintf(x.Span, "unsupported %v - wrong array size", x)
+			// fprintf(x.Span, "unsupported %v - wrong array size", x)
 			return
 		}
 
@@ -1199,20 +1222,20 @@ func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 		case cc.SizeofExpr:
 			p := unparen(siz.Left)
 			if p.Op != cc.Indir && p.Op != cc.Index || !sameType(p.Left.XType, x.List[0].XType) {
-				fprintf(x.Span, "unsupported %v - wrong size", x)
+				// fprintf(x.Span, "unsupported %v - wrong size", x)
 			}
 			objType = fixGoTypesExpr(fn, x.List[0], nil)
 		case cc.SizeofType:
 			objType = fixGoTypesExpr(fn, x.List[0], nil)
 			if !sameType(siz.Type, objType.Base) {
-				fprintf(x.Span, "unsupported %v - wrong size", x)
+				// fprintf(x.Span, "unsupported %v - wrong size", x)
 			}
 		}
 	} else {
 		count = siz
 		objType = fixGoTypesExpr(fn, x.List[0], nil)
 		if !objType.Base.Is(Byte) && !objType.Base.Is(Uint8) {
-			fprintf(x.Span, "unsupported %v - wrong size form for non-byte type", x)
+			// fprintf(x.Span, "unsupported %v - wrong size form for non-byte type", x)
 			return
 		}
 	}
@@ -1281,18 +1304,18 @@ func fixSpecialCompare(fn *cc.Decl, x *cc.Expr) bool {
 	switch call.Left.Text {
 	case "memcmp":
 		if len(call.List) != 3 {
-			fprintf(x.Span, "unsupported %v", x)
+			// fprintf(x.Span, "unsupported %v", x)
 			return false
 		}
 		obj1, obj1Type := objIndir(fn, call.List[0])
 		obj2, obj2Type := objIndir(fn, call.List[1])
 		if obj1Type == nil || !sameType(obj1Type, obj2Type) {
-			fprintf(x.Span, "unsupported %v", call)
+			// fprintf(x.Span, "unsupported %v", call)
 			return true
 		}
 
 		if !matchSize(fn, obj1, obj1Type, call.List[2]) && !matchSize(fn, obj2, obj2Type, call.List[2]) {
-			fprintf(x.Span, "unsupported %v - wrong size", call)
+			// fprintf(x.Span, "unsupported %v - wrong size", call)
 			return true
 		}
 

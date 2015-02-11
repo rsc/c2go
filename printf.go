@@ -238,6 +238,10 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 						convert = "uint"
 					}
 				}
+			
+			case 'C': // rune
+				buf.WriteString(flags)
+				buf.WriteString("c")
 
 			case 'q': // plan 9 rc(1) quoted string
 				buf.WriteString(flags)
@@ -253,6 +257,18 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 					forceConvert(nil, args[narg], args[narg].XType, intType)
 				}
 				convert = "Aconv" + suffix
+				if isCompiler {
+					switch {
+					case strings.Contains(fx.Span.Start.File, "cmd/6g"):
+						convert = "amd64." + convert
+					case strings.Contains(fx.Span.Start.File, "cmd/8g"):
+						convert = "i386." + convert
+					case strings.Contains(fx.Span.Start.File, "cmd/5g"):
+						convert = "arm." + convert
+					case strings.Contains(fx.Span.Start.File, "cmd/9g"):
+						convert = "ppc64." + convert
+					}
+				}
 
 			case 'L':
 				if allFlags != "%" {

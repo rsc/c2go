@@ -10,8 +10,15 @@ rm -f $GOROOT/src/cmd/gc/mkbuiltin1.c $GOROOT/src/cmd/gc/y.tab.c # implement 'bu
 dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
 trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj && cd $dst/src/cmd/gc && git checkout HEAD mkbuiltin1.c y.tab.c" 0
-rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc $dst/src/cmd/new?g
-c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/6g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/6g/*.c
+rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc* $dst/src/cmd/new?g
+for i in 6 5 8 9
+do
+	rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc
+	c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/${i}g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/${i}g/*.c
+	mv $dst/src/cmd/internal/gc $dst/src/cmd/internal/gc.$i
+done
+mv $dst/src/cmd/internal/gc.6 $dst/src/cmd/internal/gc
+rm -rf $dst/src/cmd/internal/gc.?
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
@@ -37,12 +44,20 @@ rm -rf /tmp/c2gomain
 mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
 goimports -w $dst/src/cmd/new* $dst/src/cmd/internal
-wc $(find $dst/src/cmd/{internal/obj,internal/gc,new6g} -type f -a -name '*.go')
-go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a cmd/internal/gc cmd/new6g 
+wc $(find $dst/src/cmd/{internal/obj,internal/gc,new?g} -type f -a -name '*.go')
+go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/new{5,6,8,9}a cmd/internal/gc cmd/new{5,6,8,9}g
 
-new6g -g -R -v -S ~/g/go/test/helloworld.go
+new6g ~/g/go/test/helloworld.go
 go tool 6l helloworld.6
 ./6.out
+GOARCH=386 new8g ~/g/go/test/helloworld.go
+GOARCH=386 go tool 8l helloworld.8
+./8.out
+
+for i in 5g 6g 8g 9g
+do
+	cp $(which new$i) $(toolstash -n $i)
+done
 
 exit 0
 

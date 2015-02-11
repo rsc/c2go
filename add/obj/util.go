@@ -214,8 +214,7 @@ func Getgoarm() string {
 }
 
 func Getgo386() string {
-	//return envOr("GO386", defaultGO386)
-	panic("go386")
+	return envOr("GO386", defaultGO386)
 }
 
 func Getgoversion() string {

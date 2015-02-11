@@ -42,7 +42,7 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 			}
 			p.Print("package ", pkg, "\n\n")
 			switch p.Package {
-			case "cmd/new6g":
+			case "cmd/new5g", "cmd/new6g", "cmd/new8g", "cmd/new9g":
 				p.Print(`import "cmd/internal/obj"`, "\n")
 				p.Print(`import "cmd/internal/gc"`, "\n")
 
