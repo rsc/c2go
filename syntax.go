@@ -237,7 +237,6 @@ func rewriteStmt(stmt *cc.Stmt) {
 	case cc.Switch:
 		// TODO: Change default fallthrough to default break.
 		before, _ := extractSideEffects(stmt.Expr, sideNoAfter)
-		rewriteSwitch(stmt)
 		if len(before) > 0 {
 			old := copyStmt(stmt)
 			stmt.Expr = nil
@@ -245,7 +244,9 @@ func rewriteStmt(stmt *cc.Stmt) {
 			stmt.Else = nil
 			stmt.Op = BlockNoBrace
 			stmt.Block = append(before, old)
+			break // recursion will rewrite new inner switch
 		}
+		rewriteSwitch(stmt)
 	}
 }
 
@@ -302,6 +303,9 @@ func joinExpr(list []*cc.Expr, op cc.ExprOp) *cc.Expr {
 }
 
 func rewriteSwitch(swt *cc.Stmt) {
+	if numRewrite != 1 {
+		return
+	}
 	var out []*cc.Stmt
 	for _, stmt := range swt.Body.Block {
 		// Put names after cases, so that they go to the same place.
@@ -323,8 +327,8 @@ func rewriteSwitch(swt *cc.Stmt) {
 			stmt.Labels = append(cases, names...)
 		}
 		if len(cases) > 0 {
-			// Add fallthrough if needed.
-			if len(out) > 0 && numRewrite == 1 {
+			// Remove break or add fallthrough if needed.
+			if len(out) > 0 {
 				last := out[len(out)-1]
 				if last.Op == cc.Break && len(last.Labels) == 0 {
 					last.Op = cc.Empty
@@ -335,6 +339,14 @@ func rewriteSwitch(swt *cc.Stmt) {
 		}
 		out = append(out, stmt)
 	}
+	// Remove final break.
+	if len(out) > 0 {
+		last := out[len(out)-1]
+		if last.Op == cc.Break && len(last.Labels) == 0 {
+			last.Op = cc.Empty
+		}
+	}
+	
 	swt.Body.Block = out
 }
 

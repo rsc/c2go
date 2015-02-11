@@ -416,11 +416,7 @@ simple_stmt:
 		// Since a bare name used as an expression is an error,
 		// introduce a wrapper node to give the correct line.
 		switch($$.Op) {
-		case ONAME:
-		case ONONAME:
-		case OTYPE:
-		case OPACK:
-		case OLITERAL:
+		case ONAME, ONONAME, OTYPE, OPACK, OLITERAL:
 			$$ = Nod(OPAREN, $$, nil);
 			$$.Implicit = 1;
 			break;
@@ -1036,11 +1032,7 @@ bare_complitexpr:
 		// Introduce a wrapper node to give the correct line.
 		$$ = $1;
 		switch($$.Op) {
-		case ONAME:
-		case ONONAME:
-		case OTYPE:
-		case OPACK:
-		case OLITERAL:
+		case ONAME, ONONAME, OTYPE, OPACK, OLITERAL:
 			$$ = Nod(OPAREN, $$, nil);
 			$$.Implicit = 1;
 		}
@@ -1069,12 +1061,7 @@ pexpr:
 		// Don't bother with the OPAREN in other cases:
 		// it's just a waste of memory and time.
 		switch($$.Op) {
-		case ONAME:
-		case ONONAME:
-		case OPACK:
-		case OTYPE:
-		case OLITERAL:
-		case OTYPESW:
+		case ONAME, ONONAME, OPACK, OTYPE, OLITERAL, OTYPESW:
 			$$ = Nod(OPAREN, $$, nil);
 		}
 	}
@@ -2183,8 +2170,7 @@ hidden_literal:
 	{
 		$$ = nodlit($2);
 		switch($$.Val.Ctype){
-		case CTINT:
-		case CTRUNE:
+		case CTINT, CTRUNE:
 			mpnegfix($$.Val.U.Xval);
 			break;
 		case CTFLT:

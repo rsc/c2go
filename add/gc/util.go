@@ -19,8 +19,9 @@ func (n *Node) Line() string {
 }
 
 func atoi(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
+	// NOTE: Not strconv.Atoi, accepts hex and octal prefixes.
+	n, _ := strconv.ParseInt(s, 0, 0)
+	return int(n)
 }
 
 func isalnum(c int) bool {

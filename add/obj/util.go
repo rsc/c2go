@@ -10,6 +10,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -25,12 +26,12 @@ func Cputime() float64 {
 }
 
 type Biobuf struct {
-	unget     int
-	haveUnget bool
+	unget [2]int
+	numUnget int
 	f         *os.File
 	r         *bufio.Reader
 	w         *bufio.Writer
-	linelen int
+	linelen   int
 }
 
 func Bopenw(name string) (*Biobuf, error) {
@@ -48,7 +49,6 @@ func Bopenr(name string) (*Biobuf, error) {
 	}
 	return &Biobuf{f: f, r: bufio.NewReader(f)}, nil
 }
-
 
 func Binitw(w io.Writer) *Biobuf {
 	return &Biobuf{w: bufio.NewWriter(w)}
@@ -105,17 +105,18 @@ func Bputc(b *Biobuf, c byte) {
 }
 
 func Bgetc(b *Biobuf) int {
-	if b.haveUnget {
-		b.haveUnget = false
-		return int(b.unget)
+	if b.numUnget > 0 {
+		b.numUnget--
+		return int(b.unget[b.numUnget])
 	}
 	c, err := b.r.ReadByte()
+	r := int(c)
 	if err != nil {
-		b.unget = -1
-		return -1
+		r = -1
 	}
-	b.unget = int(c)
-	return int(c)
+	b.unget[1] = b.unget[0]
+	b.unget[0] = r
+	return r
 }
 
 func Bgetrune(b *Biobuf) int {
@@ -170,7 +171,7 @@ func Blinelen(b *Biobuf) int {
 }
 
 func Bungetc(b *Biobuf) {
-	b.haveUnget = true
+	b.numUnget++
 }
 
 func Bflush(b *Biobuf) error {
