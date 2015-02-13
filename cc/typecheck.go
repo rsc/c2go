@@ -697,7 +697,7 @@ func (lx *lexer) typecheckExpr(x *Expr) {
 		}
 		x.XType = &Type{Kind: Ptr, Base: t}
 
-	case AddEq:
+	case AddEq, SubEq:
 		l, r := x.Left.XType, x.Right.XType
 		if l == nil || r == nil {
 			break
@@ -1072,9 +1072,9 @@ func (lx *lexer) typecheckExpr(x *Expr) {
 		if x.Left.Op != Name {
 			lx.Errorf("offsetof field too complicated")
 		}
-		d := structDot(x.Type, x.Left.Text)
+		d := structDot(stripTypedef(x.Type), x.Left.Text)
 		if d == nil {
-			lx.Errorf("unknown field %v.%v", x.Type, x.Text)
+			lx.Errorf("unknown field %v.%v", x.Type, x.Left.Text)
 		}
 
 	case Paren:
@@ -1140,10 +1140,6 @@ func (lx *lexer) typecheckExpr(x *Expr) {
 		default:
 			lx.typecheckArith(x)
 		}
-
-	case SubEq:
-		// ptr -= int
-		lx.typecheckArithEq(x)
 
 	case Twid:
 		// ~int

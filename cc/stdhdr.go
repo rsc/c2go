@@ -48,6 +48,12 @@ char *strcpy(char*, char*);
 char *smprint(char*, ...);
 void strcat(char*, char*);
 
+vlong seek(int, vlong, int);
+int write(int, void*, long);
+void atexit(void (*)(void));
+void strncpy(char*, char*, int);
+int tokenize(char*, char**, int);
+
 int atoi(char*);
 ulong strtoul(char*, char**, int);
 long strtol(char*, char**, int);
@@ -157,4 +163,13 @@ enum
 	BITS = 5,
 	NVAR = BITS*4*8,
 };
+`
+
+var hdr_sys_stat_h = `
+struct stat {
+	int st_mode;
+};
+
+int lstat(char*, struct stat*);
+int S_ISREG(int);
 `

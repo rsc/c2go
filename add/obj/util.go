@@ -62,7 +62,7 @@ func Bwritestring(b *Biobuf, p string) (int, error) {
 	return b.w.WriteString(p)
 }
 
-func Bseek(b *Biobuf, offset int64, whence int) {
+func Bseek(b *Biobuf, offset int64, whence int) int64 {
 	if b.w != nil {
 		if err := b.w.Flush(); err != nil {
 			log.Fatal("writing output: %v", err)
@@ -72,13 +72,14 @@ func Bseek(b *Biobuf, offset int64, whence int) {
 			offset -= int64(b.r.Buffered())
 		}
 	}
-	_, err := b.f.Seek(offset, whence)
+	off, err := b.f.Seek(offset, whence)
 	if err != nil {
 		log.Fatal("seeking in output: %v", err)
 	}
 	if b.r != nil {
 		b.r.Reset(b.f)
 	}
+	return off
 }
 
 func Boffset(b *Biobuf) int64 {
@@ -102,6 +103,18 @@ func Bwrite(b *Biobuf, p []byte) (int, error) {
 
 func Bputc(b *Biobuf, c byte) {
 	b.w.WriteByte(c)
+}
+
+const Beof = -1
+
+func Bread(b *Biobuf, p []byte) int {
+	n, err := io.ReadFull(b.r, p)
+	if n == 0 {
+		if err != nil && err != io.EOF {
+			n = -1
+		}
+	}
+	return n
 }
 
 func Bgetc(b *Biobuf) int {

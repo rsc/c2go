@@ -75,6 +75,12 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 	if tryPrintf(curfn, x, "print", 0, "fmt.Printf") {
 		return true
 	}
+	if tryPrintf(curfn, x, "fprint", 1, "fmt.Fprintf") {
+		if x.List[0].String() == "2" {
+			x.List[0] = &cc.Expr{Op: cc.Name, Text: "os.Stderr"}
+		}
+		return true
+	}
 	if tryPrintf(curfn, x, "sysfatal", 0, "log.Fatalf") {
 		return true
 	}
@@ -82,6 +88,12 @@ func fixPrintf(curfn *cc.Decl, x *cc.Expr) bool {
 		return true
 	}
 	if tryPrintf(curfn, x, "ctxt->diag", 0, "") {
+		return true
+	}
+	if tryPrintf(curfn, x, "diag", 0, "") {
+		return true
+	}
+	if tryPrintf(curfn, x, "werrstr", 0, "") {
 		return true
 	}
 	if tryPrintf(curfn, x, "yyerror", 0, "") {

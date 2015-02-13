@@ -708,6 +708,9 @@ func fixGoTypesExpr(fn *cc.Decl, x *cc.Expr, targ *cc.Type) (ret *cc.Type) {
 			return &cc.Type{Kind: cc.Func, Base: intType}
 		}
 		if x.XDecl == nil {
+			if x.Text == "true" || x.Text == "false" {
+				return x.XType
+			}
 			return nil
 		}
 		return x.XDecl.Type
@@ -1155,6 +1158,22 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.Op = cc.Or
 		x.Left = &cc.Expr{Op: cc.Lsh, Left: x.List[0], Right: &cc.Expr{Op: cc.Number, Text: "16"}, XType: left}
 		x.Right = x.List[1]
+		x.List = nil
+		x.XType = uint32Type
+		return true
+	
+	case "R":
+		if len(x.List) != 2 {
+			fprintf(x.Span, "unsupported %v - too many args", x)
+			return false
+		}
+		left := fixGoTypesExpr(fn, x.List[0], targ)
+		right := fixGoTypesExpr(fn, x.List[1], targ)
+		forceConvert(fn, x.List[0], left, uint32Type)
+		forceConvert(fn, x.List[1], right, uint32Type)
+		x.Op = cc.Or
+		x.Left = x.List[0]
+		x.Right = &cc.Expr{Op: cc.Lsh, Left: x.List[1], Right: &cc.Expr{Op: cc.Number, Text: "24"}, XType: left}
 		x.List = nil
 		x.XType = uint32Type
 		return true

@@ -46,7 +46,11 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 				p.Print(`import "cmd/internal/obj"`, "\n")
 				p.Print(`import "cmd/internal/gc"`, "\n")
 
-			case "cmd/internal/gc":
+			case "cmd/new5l", "cmd/new6l", "cmd/new8l", "cmd/new9l":
+				p.Print(`import "cmd/internal/obj"`, "\n")
+				p.Print(`import "cmd/internal/ld"`, "\n")
+			
+			case "cmd/internal/gc", "cmd/internal/ld", "cmd/internal/obj/arm", "cmd/internal/obj/ppc64", "cmd/internal/obj/x86", "cmd/internal/obj/amd64":
 				p.Print(`import "cmd/internal/obj"`, "\n")
 			}
 
@@ -85,6 +89,10 @@ func writeGoFiles(cfg *Config, prog *cc.Prog) {
 		buf = bytes.Replace(buf, []byte("\n {"), []byte(" {"), -1)
 
 		buf1, err := format.Source(buf)
+		if err != nil {
+			// Scream because it invalidates diffs.
+			log.Printf("ERROR formatting %s: %v", gofile, err)
+		}
 		if err == nil {
 			buf = buf1
 		}

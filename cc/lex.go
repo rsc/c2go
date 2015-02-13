@@ -183,6 +183,7 @@ var stdMap = map[string]string{
 	"libc.h":   hdr_libc_h,
 	"stdarg.h": "",
 	"signal.h": "",
+	"sys/stat.h": hdr_sys_stat_h,
 }
 
 var extraMap = map[string]string{

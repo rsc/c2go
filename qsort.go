@@ -24,11 +24,11 @@ func fixQsort(prog *cc.Prog, x *cc.Expr) {
 	cmp := x.List[3].XDecl.Name
 	decl := x.List[3].XDecl
 
-	typ := fixQsortCmp(decl)
+	typ, newDecl := fixQsortCmp(decl)
 	if typ == nil {
 		return
 	}
-
+	
 	x.Left.Text = "sort.Sort"
 	x.Left.XDecl = nil
 	x.List = []*cc.Expr{
@@ -109,11 +109,11 @@ func fixQsort(prog *cc.Prog, x *cc.Expr) {
 
 	for i, d := range prog.Decls {
 		if d == decl {
-			prog.Decls = append(append(prog.Decls[:i:i], typeDecl, lenFunc, swapFunc), prog.Decls[i:]...)
+			prog.Decls = append(append(prog.Decls[:i:i], typeDecl, lenFunc, swapFunc, newDecl), prog.Decls[i+1:]...)
 			return
 		}
 	}
-	prog.Decls = append(prog.Decls[:len(prog.Decls):len(prog.Decls)], typeDecl, lenFunc, swapFunc)
+	prog.Decls = append(prog.Decls[:len(prog.Decls):len(prog.Decls)], typeDecl, lenFunc, swapFunc, newDecl)
 }
 
 // isGoVoidPtr reports whether t is a void* or the Go translation of a void* (*struct{}).
@@ -125,11 +125,11 @@ func isGoVoidPtr(t *cc.Type) bool {
 	return t.Kind == cc.Void || t.Kind == cc.Struct && len(t.Decls) == 0
 }
 
-func fixQsortCmp(decl *cc.Decl) *cc.Type {
+func fixQsortCmp(decl *cc.Decl) (*cc.Type, *cc.Decl) {
 	ftyp := decl.Type
 	if ftyp.Kind != cc.Func || len(ftyp.Decls) != 2 || !isEmptyInterface(ftyp.Decls[0].Type) || !isEmptyInterface(ftyp.Decls[1].Type) {
 		fprintf(decl.Span, "invalid qsort cmp function %v - wrong args", GoString(ftyp))
-		return nil
+		return nil, nil
 	}
 
 	a1, a2 := ftyp.Decls[0], ftyp.Decls[1]
@@ -163,23 +163,23 @@ func fixQsortCmp(decl *cc.Decl) *cc.Type {
 
 	if p1 == nil || p2 == nil {
 		fprintf(decl.Span, "invalid qsort cmp function - cannot find arg extraction")
-		return nil
+		return nil, nil
 	}
 
 	if !sameType(p1.XType, p2.XType) {
 		fprintf(decl.Span, "invalid qsort cmp function - different arg types %v and %v", GoString(p1.XType), GoString(p2.XType))
-		return nil
+		return nil, nil
 	}
 	if indir1 != indir2 {
 		fprintf(decl.Span, "invalid qsort cmp function - different arg indirection")
-		return nil
+		return nil, nil
 	}
 
 	typ := p1.XType
 	if !indir1 {
 		if typ.Def().Kind != cc.Ptr {
 			fprintf(decl.Span, "invalid qsort cmp function - arg ptr cast to non-ptr %v", GoString(typ))
-			return nil
+			return nil, nil
 		}
 		typ = typ.Def().Base
 	}
@@ -188,6 +188,9 @@ func fixQsortCmp(decl *cc.Decl) *cc.Type {
 	// Rewrite to take x, i, j, use x[i] for p1, x[j] for p2,
 	// take address of x[i], x[j] if there was no indirect,
 	// replace all return z with return z < 0.
+	newDecl := *decl
+	decl.Body = nil
+	decl = &newDecl
 	cmp := decl.Name
 	decl.Name = "(x " + cmp + ") Less"
 	decl.Type = &cc.Type{
@@ -240,5 +243,5 @@ func fixQsortCmp(decl *cc.Decl) *cc.Type {
 		}
 	})
 
-	return typ
+	return typ, decl
 }
