@@ -107,8 +107,8 @@ enum
 	NDFLT,
 	FPPDBL,
 	FPRNR,
-	BOM,
 	HEADER_IO,
+	BOM = 0xFEFF,
 };
 
 extern	void	flagcount(char*, char*, int*);

@@ -58,3 +58,14 @@ func intstarstringplusplus(s string) (int, string) {
 	}
 	return int(s[0]), s[1:]
 }
+
+// strings.Compare, introduced in Go 1.5.
+func stringsCompare(a, b string) int {
+	if a == b {
+		return 0
+	}
+	if a < b {
+		return -1
+	}
+	return +1
+}

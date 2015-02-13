@@ -22,3 +22,10 @@ func plan9quote(s string) string {
 needquote:
 	return "'" + strings.Replace(s, "'", "''", -1) + "'"
 }
+
+func cutStringAtNUL(s string) string {
+	if i := strings.Index(s, "\x00"); i >= 0 {
+		s = s[:i]
+	}
+	return s
+}

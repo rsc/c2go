@@ -10,13 +10,13 @@ rm -f $GOROOT/src/cmd/gc/mkbuiltin1.c $GOROOT/src/cmd/gc/y.tab.c # implement 'bu
 dst=$GOROOT # !!!
 cp $dst/src/cmd/internal/obj/zbootstrap.go /tmp
 trap "mkdir -p $dst/src/cmd/internal/obj && cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj && cd $dst/src/cmd/gc && git checkout HEAD mkbuiltin1.c y.tab.c" 0
-rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc* $dst/src/cmd/internal/ld* $dst/src/cmd/new?g $dst/src/cmd/new?l
+rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc* $dst/src/cmd/new?g ## $dst/src/cmd/internal/ld* $dst/src/cmd/new?l
 
-for i in 6 # 5 8 9
+for i in 6 5 8 9
 do
-	rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/ld
-	c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/${i}g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/ld/*.c $GOROOT/src/cmd/${i}l/*.c
-	mv $dst/src/cmd/internal/ld $dst/src/cmd/internal/ld.$i
+##	rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/ld
+##	c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/${i}g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/ld/*.c $GOROOT/src/cmd/${i}l/*.c
+##	mv $dst/src/cmd/internal/ld $dst/src/cmd/internal/ld.$i
 
 	rm -rf $dst/src/cmd/internal/obj $dst/src/cmd/internal/gc
 	c2go -c c2go.cfg -dst $dst -I $GOROOT/include -I $GOROOT/src/cmd/${i}g $GOROOT/src/liblink/*.c $GOROOT/src/cmd/gc/*.c $GOROOT/src/cmd/${i}g/*.c
@@ -24,8 +24,8 @@ do
 done
 
 mv $dst/src/cmd/internal/gc.6 $dst/src/cmd/internal/gc
-mv $dst/src/cmd/internal/ld.6 $dst/src/cmd/internal/ld
-rm -rf $dst/src/cmd/internal/gc.? $dst/src/cmd/internal/ld.?
+## mv $dst/src/cmd/internal/ld.6 $dst/src/cmd/internal/ld
+rm -rf $dst/src/cmd/internal/gc.? ## $dst/src/cmd/internal/ld.?
 cp /tmp/zbootstrap.go $dst/src/cmd/internal/obj
 for i in add/obj/*.go; do
 	base=$(echo $i | sed 's;.*/;;')
@@ -39,14 +39,18 @@ for i in add/gc/*.*; do
 	base=$(echo $i | sed 's;.*/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/gc/$base
 done
-for i in add/new6{g,l}/*.go; do
+for i in add/new{5,6,8,9}g/*.go; do
 	base=$(echo $i | sed 's;add/;;')
 	cat $i | grep -v 'build ignore' >$dst/src/cmd/$base
 done
-for i in add/ld/*.go; do
-	base=$(echo $i | sed 's;.*/;;')
-	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/ld/$base
-done
+##for i in add/new6{g,l}/*.go; do
+##	base=$(echo $i | sed 's;add/;;')
+##	cat $i | grep -v 'build ignore' >$dst/src/cmd/$base
+##done
+##for i in add/ld/*.go; do
+##	base=$(echo $i | sed 's;.*/;;')
+##	cat $i | grep -v 'build ignore' >$dst/src/cmd/internal/ld/$base
+##done
 
 rm $dst/src/cmd/internal/gc/{yerr.go,y.tab.go}
 (cd $dst/src/cmd/internal/gc && go tool yacc go.y)
@@ -57,12 +61,12 @@ mv $dst/src/main /tmp/c2gomain
 export GOPATH=""
 goimports -w $dst/src/cmd/new* $dst/src/cmd/internal
 wc $(find $dst/src/cmd/{internal/obj,internal/gc,new?g,new?l} -type f -a -name '*.go')
-go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/internal/gc cmd/new6{a,g,l} # cmd/new{5,6,8,9}{a,g,l}
+go install -gcflags -e cmd/internal/obj... cmd/objwriter cmd/internal/gc cmd/new{5,6,8,9}{a,g} ## cmd/new{5,6,8,9}{a,g,l}
 
-new6g ~/g/go/test/helloworld.go
+go tool new6g ~/g/go/test/helloworld.go
 go tool 6l helloworld.6
 ./6.out
-GOARCH=386 new8g ~/g/go/test/helloworld.go
+GOARCH=386 go tool new8g ~/g/go/test/helloworld.go
 GOARCH=386 go tool 8l helloworld.8
 ./8.out
 

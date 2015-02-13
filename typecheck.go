@@ -1135,7 +1135,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		}
 		fixGoTypesExpr(fn, x.List[0], stringType)
 		fixGoTypesExpr(fn, x.List[1], stringType)
-		x.Left.Text = "strings.Compare"
+		x.Left.Text = "stringsCompare"
 		x.Left.XDecl = nil
 		x.XType = intType
 		return true
