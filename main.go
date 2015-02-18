@@ -77,7 +77,7 @@ func main() {
 
 	for _, d := range cfg.diffs {
 		if d.used == 0 {
-			//fmt.Fprintf(os.Stderr, "%s: unused diff\n", d.line)
+			fmt.Fprintf(os.Stderr, "%s: unused diff\n", d.line)
 		}
 	}
 }
