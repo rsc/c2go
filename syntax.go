@@ -355,7 +355,7 @@ func fallsThrough(x *cc.Stmt) bool {
 	case cc.Break, cc.Continue, cc.Return, cc.Goto:
 		return false
 	case cc.StmtExpr:
-		if x.Expr.Op == cc.Call && x.Expr.Left.Op == cc.Name && x.Expr.Left.Text == "sysfatal" {
+		if x.Expr.Op == cc.Call && x.Expr.Left.Op == cc.Name && (x.Expr.Left.Text == "sysfatal" || x.Expr.Left.Text == "fatal") {
 			return false
 		}
 		if x.Expr.Op == cc.Name && x.Expr.Text == "fallthrough" {
