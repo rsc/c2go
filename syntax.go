@@ -346,7 +346,7 @@ func rewriteSwitch(swt *cc.Stmt) {
 			last.Op = cc.Empty
 		}
 	}
-	
+
 	swt.Body.Block = out
 }
 
@@ -589,4 +589,80 @@ func checkNoSideEffects(x *cc.Expr, mode int) {
 	if len(before)+len(after) > 0 {
 		fprintf(x.Span, "cannot handle side effects in %s", old)
 	}
+}
+
+// Apply DeMorgan's law and invert comparisons
+// to simplify negation of boolean expressions.
+func simplifyBool(cfg *Config, prog *cc.Prog) {
+	cc.Preorder(prog, func(x cc.Syntax) {
+		switch x := x.(type) {
+		case *cc.Expr:
+			switch x.Op {
+			case cc.Not:
+				y := x.Left
+				for y.Op == cc.Paren {
+					y = y.Left
+				}
+				switch y.Op {
+				case cc.AndAnd:
+					*x = *y
+					x.Left = &cc.Expr{Op: cc.Not, Left: x.Left}
+					x.Right = &cc.Expr{Op: cc.Not, Left: x.Right}
+					x.Op = cc.OrOr
+
+				case cc.OrOr:
+					*x = *y
+					x.Left = &cc.Expr{Op: cc.Not, Left: x.Left}
+					x.Right = &cc.Expr{Op: cc.Not, Left: x.Right}
+					x.Op = cc.AndAnd
+
+				case cc.EqEq:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.NotEq
+
+				case cc.NotEq:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.EqEq
+
+				case cc.Lt:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.GtEq
+
+				case cc.LtEq:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.Gt
+
+				case cc.Gt:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.LtEq
+
+				case cc.GtEq:
+					if isfloat(x.Left.XType) {
+						break
+					}
+					*x = *y
+					x.Op = cc.Lt
+				}
+			}
+		}
+	})
+}
+
+func isfloat(t *cc.Type) bool {
+	return t != nil && (t.Kind == Float32 || t.Kind == Float64)
 }

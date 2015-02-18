@@ -71,6 +71,7 @@ func main() {
 	rewriteSyntax(cfg, prog)
 	rewriteLen(cfg, prog)
 	fixGoTypes(cfg, prog)
+	simplifyBool(cfg, prog)
 	renameDecls(cfg, prog)
 	exportDecls(cfg, prog)
 	writeGoFiles(cfg, prog)
