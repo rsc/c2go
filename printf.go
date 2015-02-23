@@ -153,9 +153,9 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 			}
 		})
 	}
-	
+
 	isGC := strings.Contains(fx.Span.Start.File, "cmd/gc")
-	isCompiler := isGC || strings.Contains(fx.Span.Start.File, "cmd/6g") || strings.Contains(fx.Span.Start.File, "cmd/8g") ||  strings.Contains(fx.Span.Start.File, "cmd/5g") ||  strings.Contains(fx.Span.Start.File, "cmd/9g")
+	isCompiler := isGC || strings.Contains(fx.Span.Start.File, "cmd/6g") || strings.Contains(fx.Span.Start.File, "cmd/8g") || strings.Contains(fx.Span.Start.File, "cmd/5g") || strings.Contains(fx.Span.Start.File, "cmd/9g")
 
 	narg := 0
 	for j, text := range fx.Texts {
@@ -177,6 +177,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 			start = i
 			i++
 			if i < len(format) && format[i] == '%' {
+				buf.WriteByte('%')
 				buf.WriteByte('%')
 				start = i + 1
 				continue
@@ -250,7 +251,7 @@ func fixPrintFormat(curfn *cc.Decl, fx *cc.Expr, args []*cc.Expr) []*cc.Expr {
 						convert = "uint"
 					}
 				}
-			
+
 			case 'C': // rune
 				buf.WriteString(flags)
 				buf.WriteString("c")
