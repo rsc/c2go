@@ -116,7 +116,7 @@ var (
 	byteType   = &cc.Type{Kind: Byte}
 	intType    = &cc.Type{Kind: Int}
 	uintType   = &cc.Type{Kind: Uint}
-	int32Type = &cc.Type{Kind: Int32}
+	int32Type  = &cc.Type{Kind: Int32}
 	uint32Type = &cc.Type{Kind: Uint32}
 	int64Type  = &cc.Type{Kind: Int64}
 	uint64Type = &cc.Type{Kind: Uint64}
@@ -276,7 +276,7 @@ func toGoType(cfg *Config, x cc.Syntax, typ *cc.Type, cache map[*cc.Type]*cc.Typ
 			}
 			typ.Base = toGoType(cfg, x, typ.Base, cache)
 		}
-		
+
 		// Check for array passed as parameter. Doesn't translate well.
 		for _, d := range typ.Decls {
 			if d.Type.Is(cc.Array) {
@@ -1076,7 +1076,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 			x.XType = &cc.Type{Kind: cc.Ptr, Base: typ}
 			if typ.String() == "Prog" {
 				isGC := strings.Contains(x.Span.Start.File, "cmd/gc")
-				isCompiler := isGC || strings.Contains(x.Span.Start.File, "cmd/6g") || strings.Contains(x.Span.Start.File, "cmd/8g") ||  strings.Contains(x.Span.Start.File, "cmd/5g") ||  strings.Contains(x.Span.Start.File, "cmd/9g")
+				isCompiler := isGC || strings.Contains(x.Span.Start.File, "cmd/6g") || strings.Contains(x.Span.Start.File, "cmd/8g") || strings.Contains(x.Span.Start.File, "cmd/5g") || strings.Contains(x.Span.Start.File, "cmd/9g")
 				if isCompiler {
 					x.List = nil
 					x.Left.Text = "Ctxt.NewProg"
@@ -1161,7 +1161,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.List = nil
 		x.XType = uint32Type
 		return true
-	
+
 	case "R":
 		if len(x.List) != 2 {
 			fprintf(x.Span, "unsupported %v - too many args", x)
@@ -1177,7 +1177,7 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.List = nil
 		x.XType = uint32Type
 		return true
-	
+
 	case "FCASE":
 		if len(x.List) != 3 {
 			fprintf(x.Span, "unsupported %v - too many args", x)
@@ -1192,8 +1192,8 @@ func fixSpecialCall(fn *cc.Decl, x *cc.Expr, targ *cc.Type) bool {
 		x.Op = cc.Or
 		x.Left = &cc.Expr{Op: cc.Lsh, Left: x.List[0], Right: &cc.Expr{Op: cc.Number, Text: "16"}, XType: uint32Type}
 		x.Right = &cc.Expr{
-			Op: cc.Or,
-			Left: &cc.Expr{Op: cc.Lsh, Left: x.List[1], Right: &cc.Expr{Op: cc.Number, Text: "8"}, XType: uint32Type},
+			Op:    cc.Or,
+			Left:  &cc.Expr{Op: cc.Lsh, Left: x.List[1], Right: &cc.Expr{Op: cc.Number, Text: "8"}, XType: uint32Type},
 			Right: x.List[2],
 		}
 		x.List = nil
@@ -1257,6 +1257,11 @@ func fixMemset(prog *cc.Prog, fn *cc.Decl, stmt *cc.Stmt) {
 			// fprintf(x.Span, "unsupported %v - wrong size form for non-byte type", x)
 			return
 		}
+	}
+
+	if objType == nil {
+		fprintf(x.Span, "unsupported %v - lost type", x)
+		return
 	}
 
 	// Found it. Replace with zeroing for loop.
@@ -1622,7 +1627,7 @@ func zeroFor(targ *cc.Type) *cc.Expr {
 		if Int8 <= k && k <= Float64 {
 			return &cc.Expr{Op: cc.Number, Text: "0"}
 		}
-		
+
 		if isEmptyInterface(targ) {
 			return &cc.Expr{Op: cc.Name, Text: "nil"}
 		}

@@ -38,6 +38,8 @@ typedef struct va_list *va_list;
 var hdr_libc_h = `
 #include <fmt.h>
 
+extern char *argv0;
+
 int nelem(void*);
 
 int memcmp(void*, void*, long);

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+echo DONE WITH THIS
+exit 0
+
 set -e
 eval $(go env)
 export GOROOT
