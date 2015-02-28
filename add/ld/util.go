@@ -64,12 +64,14 @@ func tokenize(s string) []string {
 		s = s[i:]
 		if strings.Contains(next, "'") {
 			var buf []byte
+			quote := false
 			for i := 0; i < len(next); i++ {
 				if next[i] == '\'' {
-					if i+1 < len(next) && next[i+1] == '\'' {
+					if quote && i+1 < len(next) && next[i+1] == '\'' {
 						i++
 						buf = append(buf, '\'')
 					}
+					quote = !quote
 					continue
 				}
 				buf = append(buf, next[i])
