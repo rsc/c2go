@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rsc.io/c2go/cc"
+	"github.com/rsc/c2go/cc"
 )
 
 func tryPrintf(curfn *cc.Decl, x *cc.Expr, name string, fmtpos int, newName string) bool {
