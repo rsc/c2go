@@ -1,6 +1,6 @@
 # C->Go translator
 
-**UNMAINTAINED**. See [elliotchance/c2go](https://github.com/elliotchance/c2go) for a general purpose tool.
+**UNMAINTAINED**. See [elliotchance/c2go](https://github.com/elliotchance/c2go) or [Konstantin8105/c4go](https://github.com/Konstantin8105/c4go) for a general purpose tool.
 
 This program was used to convert much of the Go runtime, compiler, and linker from C to Go.
 It's now here only for historical value and reference. It is not maintained in any way.
